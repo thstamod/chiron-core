@@ -1,0 +1,18 @@
+{
+  "name": "chiron-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source earnings research foundation",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "pnpm --filter @chiron/web dev",
+    "dev:worker": "pnpm --filter @chiron/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "check": "pnpm typecheck && pnpm build"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
