@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "typecheck": "vue-tsc -b --pretty false"
+    "typecheck": "vue-tsc -b --pretty false",
+    "test": "node --test"
   },
   "dependencies": {
     "@chiron/shared": "workspace:*",

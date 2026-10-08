@@ -8,6 +8,10 @@
   "scripts": {
     "dev": "pnpm --filter @chiron/web dev",
     "dev:worker": "pnpm --filter @chiron/worker dev",
+    "worker:health": "pnpm --filter @chiron/worker health",
+    "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",
+    "worker:sync-documents": "pnpm --filter @chiron/worker sync:documents",
+    "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "check": "pnpm typecheck && pnpm build"

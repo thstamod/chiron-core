@@ -4,14 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/index.ts health",
+    "health": "tsx src/index.ts health",
+    "sync:filings": "tsx src/index.ts sync-filings",
+    "sync:documents": "tsx src/index.ts sync-documents",
+    "test": "tsx --test src/**/*.test.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chiron/shared": "workspace:*"
+    "@chiron/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.58.0",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
+    "@types/node": "^24.7.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

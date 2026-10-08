@@ -15,7 +15,9 @@ Phase 1 provides:
 - Safe environment-variable templates.
 - Separate boundaries for future private research code.
 
-Real SEC ingestion, LLM extraction, stock prices, and predictions are intentionally not active yet.
+SEC metadata ingestion is active. The worker can classify earnings-related filings with a
+versioned transparent rule and preserve their original primary documents in private storage.
+LLM extraction, stock prices, and predictions are not active yet.
 
 ## Requirements
 
@@ -40,11 +42,29 @@ packages/shared Shared TypeScript domain types
 supabase       Database migrations
 ```
 
+See [Database guide](docs/database.md) for a plain-language explanation of every table,
+their relationships, and the private SEC document bucket.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` only when connecting external services. Never commit `.env`.
 
 The Supabase secret key belongs only in server-side code. It must never be placed in the Vue application or shared through chat, email, logs, or source control.
+
+After applying the Supabase migrations, verify the connection and run the filing sync:
+
+```bash
+pnpm worker:health
+pnpm worker:sync-filings
+pnpm worker:sync-documents
+```
+
+The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
+also includes `8-K` filings containing SEC item `2.02`, which means results of operations
+and financial condition. Other `8-K` filings are retained as metadata but are not downloaded.
+
+The scheduled GitHub workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SEC_USER_AGENT` repository secrets. Enable it only after the local sync succeeds.
+It checks once per hour on weekdays to keep free-tier usage comfortably low.
 
 ## Data sources planned
 

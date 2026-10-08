@@ -20,3 +20,51 @@ export interface WorkerHealth {
   ready: boolean
   checkedAt: string
 }
+
+export interface TrackedCompany {
+  id: string
+  cik: string
+  legalName: string
+  ticker: string
+  exchange: string | null
+  sector: string | null
+  isActive: boolean
+}
+
+export interface SecFilingCandidate {
+  companyId: string
+  accessionNumber: string
+  formType: string
+  filingDate: string
+  acceptedAt: string | null
+  reportDate: string | null
+  primaryDocument: string
+  items: string[]
+  secIndexUrl: string
+  metadata: Record<string, unknown>
+}
+
+export type SecEarningsCategory = 'earnings_release' | 'periodic_report' | 'not_earnings'
+
+export interface SecEarningsClassification {
+  isEarningsRelated: boolean
+  category: SecEarningsCategory
+  reason: string
+  ruleVersion: string
+  classifiedAt: string
+}
+
+export interface SecFilingRecord {
+  id: string
+  companyId: string
+  cik: string
+  ticker: string
+  accessionNumber: string
+  formType: string
+  filingDate: string
+  acceptedAt: string | null
+  firstSeenAt: string
+  primaryDocument: string
+  items: string[]
+  earningsClassification: SecEarningsClassification | null
+}
