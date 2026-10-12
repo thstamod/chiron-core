@@ -1,75 +1,161 @@
 import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { load } from 'cheerio'
 import type { SecFilingRecord } from '@chiron/shared'
+import {
+  DatabaseTable,
+  MimeType,
+  RuleVersion,
+  SecDocumentType,
+  type SecDocumentTypeValue,
+  SecRequest,
+  SecUrl,
+  StorageConfig,
+  WorkerTiming,
+} from './constants.js'
 import { buildSecPrimaryDocumentUrl } from './sec.js'
 
-const storageBucket = 'sec-documents'
-const documentType = 'sec-primary-document'
-const maximumDocumentBytes = 50 * 1024 * 1024
+export const exhibitDiscoveryRuleVersion = RuleVersion.exhibitDiscovery
+
+export interface SecDocumentCandidate {
+  documentType: SecDocumentTypeValue
+  filename: string
+  sourceUrl: string
+  description: string | null
+}
 
 function contentTypeFor(filename: string): string {
   const lower = filename.toLowerCase()
-  if (lower.endsWith('.htm') || lower.endsWith('.html')) return 'text/html'
-  if (lower.endsWith('.xml') || lower.endsWith('.xbrl')) return 'application/xml'
-  if (lower.endsWith('.json')) return 'application/json'
-  return 'text/plain'
+  if (lower.endsWith('.htm') || lower.endsWith('.html')) return MimeType.html
+  if (lower.endsWith('.xml') || lower.endsWith('.xbrl')) return MimeType.xml
+  if (lower.endsWith('.json')) return MimeType.json
+  return MimeType.plainText
 }
 
-function storagePathFor(filing: SecFilingRecord): string {
-  const safeDocumentName = filing.primaryDocument.split('/').at(-1) ?? 'primary-document.txt'
+function storagePathFor(filing: SecFilingRecord, filename: string): string {
+  const safeDocumentName = filename.split('/').at(-1) ?? StorageConfig.fallbackDocumentName
   return `${filing.ticker}/${filing.accessionNumber}/${safeDocumentName}`
 }
 
-export async function downloadAndStorePrimaryDocument(
-  client: SupabaseClient,
+function normalizeSecDocumentUrl(href: string, indexUrl: string): string {
+  const url = new URL(href, indexUrl)
+  const inlineDocument = url.searchParams.get(SecRequest.inlineDocumentParameter)
+  if (inlineDocument?.startsWith(SecRequest.archivePathPrefix)) {
+    return new URL(inlineDocument, SecUrl.websiteBase).toString()
+  }
+  return url.toString()
+}
+
+export function parseEarningsReleaseExhibits(
+  html: string,
+  indexUrl: string,
+): SecDocumentCandidate[] {
+  const $ = load(html)
+  const candidates: SecDocumentCandidate[] = []
+
+  $(SecRequest.filingTableRowsSelector).each((_index, row) => {
+    const cells = $(row).find('td')
+    if (cells.length < 4) return
+
+    const type = $(cells[3]).text().trim().toUpperCase()
+    if (!SecRequest.exhibitTypePattern.test(type)) return
+
+    const link = $(cells[2]).find('a').first()
+    const href = link.attr('href')
+    const filename = link.text().trim()
+    if (!href || !filename) return
+
+    candidates.push({
+      documentType: SecDocumentType.earningsExhibit,
+      filename,
+      sourceUrl: normalizeSecDocumentUrl(href, indexUrl),
+      description: $(cells[1]).text().trim() || null,
+    })
+  })
+
+  return candidates
+}
+
+export async function fetchEarningsReleaseExhibits(
   filing: SecFilingRecord,
   secUserAgent: string,
-): Promise<void> {
+): Promise<SecDocumentCandidate[]> {
+  const response = await fetch(filing.secIndexUrl, {
+    headers: {
+      Accept: SecRequest.indexAccept,
+      'Accept-Encoding': SecRequest.acceptedEncoding,
+      'User-Agent': secUserAgent,
+    },
+    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
+  })
+
+  if (!response.ok) {
+    throw new Error(`SEC filing-index request failed with HTTP ${response.status}`)
+  }
+
+  return parseEarningsReleaseExhibits(await response.text(), filing.secIndexUrl)
+}
+
+export function primaryDocumentCandidate(filing: SecFilingRecord): SecDocumentCandidate {
   if (!filing.primaryDocument) {
     throw new Error(`${filing.accessionNumber} has no primary SEC document`)
   }
 
-  const sourceUrl = buildSecPrimaryDocumentUrl(
-    filing.cik,
-    filing.accessionNumber,
-    filing.primaryDocument,
-  )
-  const response = await fetch(sourceUrl, {
+  return {
+    documentType: SecDocumentType.primary,
+    filename: filing.primaryDocument,
+    sourceUrl: buildSecPrimaryDocumentUrl(
+      filing.cik,
+      filing.accessionNumber,
+      filing.primaryDocument,
+    ),
+    description: null,
+  }
+}
+
+export async function downloadAndStoreDocument(
+  client: SupabaseClient,
+  filing: SecFilingRecord,
+  candidate: SecDocumentCandidate,
+  secUserAgent: string,
+): Promise<void> {
+  const response = await fetch(candidate.sourceUrl, {
     headers: {
-      Accept: 'text/html,application/xhtml+xml,application/xml,text/plain',
-      'Accept-Encoding': 'gzip, deflate',
+      Accept: SecRequest.documentAccept,
+      'Accept-Encoding': SecRequest.acceptedEncoding,
       'User-Agent': secUserAgent,
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
   })
 
   if (!response.ok) {
-    throw new Error(`SEC document request failed with HTTP ${response.status}: ${sourceUrl}`)
+    throw new Error(`SEC document request failed with HTTP ${response.status}: ${candidate.sourceUrl}`)
   }
 
   const body = new Uint8Array(await response.arrayBuffer())
-  if (body.byteLength > maximumDocumentBytes) {
-    throw new Error(`${filing.accessionNumber} exceeds the 50 MB document limit`)
+  if (body.byteLength > StorageConfig.maximumDocumentBytes) {
+    throw new Error(`${candidate.filename} exceeds the 50 MB document limit`)
   }
 
   const contentSha256 = createHash('sha256').update(body).digest('hex')
-  const storagePath = storagePathFor(filing)
+  const storagePath = storagePathFor(filing, candidate.filename)
   const { error: uploadError } = await client.storage
-    .from(storageBucket)
+    .from(StorageConfig.secDocumentsBucket)
     .upload(storagePath, body, {
-      contentType: response.headers.get('content-type') ?? contentTypeFor(filing.primaryDocument),
+      contentType: response.headers.get('content-type') ?? contentTypeFor(candidate.filename),
       upsert: true,
     })
 
   if (uploadError) {
-    throw new Error(`Could not store ${filing.accessionNumber}: ${uploadError.message}`)
+    throw new Error(`Could not store ${candidate.filename}: ${uploadError.message}`)
   }
 
-  const { error: insertError } = await client.from('documents').insert({
+  const { error: insertError } = await client.from(DatabaseTable.documents).insert({
+    earnings_event_id: filing.earningsEventId,
     filing_id: filing.id,
     accession_number: filing.accessionNumber,
-    document_type: documentType,
-    source_url: sourceUrl,
+    document_type: candidate.documentType,
+    source_url: candidate.sourceUrl,
     storage_path: storagePath,
     published_at: filing.acceptedAt ?? filing.firstSeenAt,
     first_seen_at: filing.firstSeenAt,
@@ -77,6 +163,6 @@ export async function downloadAndStorePrimaryDocument(
   })
 
   if (insertError) {
-    throw new Error(`Could not record ${filing.accessionNumber}: ${insertError.message}`)
+    throw new Error(`Could not record ${candidate.filename}: ${insertError.message}`)
   }
 }

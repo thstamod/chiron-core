@@ -3,9 +3,19 @@ import type {
   SecFilingCandidate,
   TrackedCompany,
 } from '@chiron/shared'
+import {
+  EarningsCategory,
+  earningsReleaseSecForms,
+  periodicSecForms,
+  RuleVersion,
+  SecItem,
+  SecRequest,
+  SecUrl,
+  supportedSecForms,
+  WorkerTiming,
+} from './constants.js'
 
-const supportedForms = new Set(['8-K', '8-K/A', '10-Q', '10-Q/A', '10-K', '10-K/A'])
-export const earningsClassificationRuleVersion = 'sec-earnings-v1'
+export const earningsClassificationRuleVersion = RuleVersion.earningsClassification
 
 interface SecRecentFilings {
   accessionNumber?: string[]
@@ -48,7 +58,7 @@ function normalizeAcceptedAt(value: string | null): string | null {
 export function buildSecIndexUrl(cik: string, accessionNumber: string): string {
   const numericCik = String(Number.parseInt(cik, 10))
   const accessionPath = accessionNumber.replaceAll('-', '')
-  return `https://www.sec.gov/Archives/edgar/data/${numericCik}/${accessionPath}/${accessionNumber}-index.html`
+  return `${SecUrl.archiveDataBase}/${numericCik}/${accessionPath}/${accessionNumber}-index.html`
 }
 
 export function buildSecPrimaryDocumentUrl(
@@ -63,7 +73,7 @@ export function buildSecPrimaryDocumentUrl(
     .map((part) => encodeURIComponent(part))
     .join('/')
 
-  return `https://www.sec.gov/Archives/edgar/data/${numericCik}/${accessionPath}/${encodedDocument}`
+  return `${SecUrl.archiveDataBase}/${numericCik}/${accessionPath}/${encodedDocument}`
 }
 
 export function classifyEarningsFiling(
@@ -71,21 +81,21 @@ export function classifyEarningsFiling(
   items: string[],
   classifiedAt = new Date().toISOString(),
 ): SecEarningsClassification {
-  if (formType === '10-Q' || formType === '10-Q/A' || formType === '10-K' || formType === '10-K/A') {
+  if (periodicSecForms.has(formType)) {
     return {
       isEarningsRelated: true,
-      category: 'periodic_report',
+      category: EarningsCategory.periodicReport,
       reason: `${formType} contains the company's periodic financial report.`,
       ruleVersion: earningsClassificationRuleVersion,
       classifiedAt,
     }
   }
 
-  if ((formType === '8-K' || formType === '8-K/A') && items.includes('2.02')) {
+  if (earningsReleaseSecForms.has(formType) && items.includes(SecItem.resultsOfOperations)) {
     return {
       isEarningsRelated: true,
-      category: 'earnings_release',
-      reason: `${formType} includes SEC item 2.02, Results of Operations and Financial Condition.`,
+      category: EarningsCategory.release,
+      reason: `${formType} includes SEC item ${SecItem.resultsOfOperations}, Results of Operations and Financial Condition.`,
       ruleVersion: earningsClassificationRuleVersion,
       classifiedAt,
     }
@@ -93,7 +103,7 @@ export function classifyEarningsFiling(
 
   return {
     isEarningsRelated: false,
-    category: 'not_earnings',
+    category: EarningsCategory.notEarnings,
     reason: `${formType} does not match the versioned earnings-filing rule.`,
     ruleVersion: earningsClassificationRuleVersion,
     classifiedAt,
@@ -114,7 +124,7 @@ export function parseRecentFilings(
     const formType = valueAt(recent?.form, index)
     const filingDate = valueAt(recent?.filingDate, index)
 
-    if (!accessionNumber || !filingDate || !supportedForms.has(formType) || filingDate < cutoffDate) {
+    if (!accessionNumber || !filingDate || !supportedSecForms.has(formType) || filingDate < cutoffDate) {
       continue
     }
 
@@ -146,13 +156,13 @@ export async function fetchRecentFilings(
   cutoffDate: string,
 ): Promise<SecFilingCandidate[]> {
   const paddedCik = company.cik.padStart(10, '0')
-  const response = await fetch(`https://data.sec.gov/submissions/CIK${paddedCik}.json`, {
+  const response = await fetch(`${SecUrl.submissionsBase}/CIK${paddedCik}.json`, {
     headers: {
-      Accept: 'application/json',
-      'Accept-Encoding': 'gzip, deflate',
+      Accept: SecRequest.submissionsAccept,
+      'Accept-Encoding': SecRequest.acceptedEncoding,
       'User-Agent': userAgent,
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
   })
 
   if (!response.ok) {

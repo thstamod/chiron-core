@@ -1,0 +1,244 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { EarningsEventGroup, SecFilingRecord } from '@chiron/shared'
+import {
+  DatabaseTable,
+  EarningsCategory,
+  EarningsEventStatus,
+  periodicSecForms,
+  RuleVersion,
+  SecForm,
+  WorkerTiming,
+} from './constants.js'
+import { fetchAllPages } from './pagination.js'
+import { classifyEarningsFiling } from './sec.js'
+
+export const eventGroupingRuleVersion = RuleVersion.eventGrouping
+
+function filingTimestamp(filing: SecFilingRecord): number {
+  return new Date(filing.acceptedAt ?? filing.firstSeenAt).getTime()
+}
+
+function eventKey(companyId: string, periodEnd: string): string {
+  return `${companyId}:${periodEnd}`
+}
+
+export function buildEarningsEventGroups(filings: SecFilingRecord[]): EarningsEventGroup[] {
+  const anchors = filings.filter(
+    (filing) => (
+      filing.formType === SecForm.quarterlyReport
+      || filing.formType === SecForm.annualReport
+    ) && filing.reportDate,
+  )
+  const groups = new Map<string, SecFilingRecord[]>()
+  const anchorByKey = new Map<string, SecFilingRecord>()
+
+  for (const anchor of anchors) {
+    const key = eventKey(anchor.companyId, anchor.reportDate!)
+    const current = anchorByKey.get(key)
+    if (!current || filingTimestamp(anchor) < filingTimestamp(current)) {
+      anchorByKey.set(key, anchor)
+    }
+  }
+
+  for (const [key, anchor] of anchorByKey) groups.set(key, [anchor])
+
+  for (const filing of filings) {
+    const isPeriodicReport = periodicSecForms.has(filing.formType)
+    if (filing.reportDate && isPeriodicReport) {
+      const exactGroup = groups.get(eventKey(filing.companyId, filing.reportDate))
+      if (exactGroup && !exactGroup.some((member) => member.id === filing.id)) {
+        exactGroup.push(filing)
+        continue
+      }
+    }
+
+    const classification = classifyEarningsFiling(filing.formType, filing.items)
+    if (classification.category !== EarningsCategory.release) continue
+
+    const filingTime = filingTimestamp(filing)
+    const closestAnchor = [...anchorByKey.values()]
+      .filter((anchor) => anchor.companyId === filing.companyId)
+      .map((anchor) => ({ anchor, distance: Math.abs(filingTime - filingTimestamp(anchor)) }))
+      .filter(({ distance }) => distance <= WorkerTiming.eventGroupingWindowMs)
+      .sort((left, right) => left.distance - right.distance)[0]?.anchor
+
+    if (!closestAnchor?.reportDate) continue
+    const group = groups.get(eventKey(closestAnchor.companyId, closestAnchor.reportDate))
+    if (group && !group.some((member) => member.id === filing.id)) group.push(filing)
+  }
+
+  return [...groups.entries()]
+    .map(([key, members]) => {
+      const anchor = anchorByKey.get(key)!
+
+      return {
+        companyId: anchor.companyId,
+        periodEnd: anchor.reportDate!,
+        anchorAccessionNumber: anchor.accessionNumber,
+        filingIds: members.map((filing) => filing.id).sort(),
+        ruleVersion: eventGroupingRuleVersion,
+      }
+    })
+    .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
+}
+
+interface ExistingEventRow {
+  id: string
+  company_id: string
+  period_end: string
+  detected_at: string
+  previous_event_id: string | null
+  grouping_metadata: {
+    ruleVersion?: string
+    filingIds?: string[]
+  } | null
+}
+
+interface PreviousEventRow {
+  id: string
+  company_id: string
+  period_end: string
+  previous_event_id: string | null
+}
+
+function sameFilingIds(left: string[] | undefined, right: string[]): boolean {
+  if (!left || left.length !== right.length) return false
+  return [...left].sort().every((value, index) => value === right[index])
+}
+
+export async function saveEarningsEventGroups(
+  client: SupabaseClient,
+  groups: EarningsEventGroup[],
+): Promise<{ changedEvents: number; linkedFilings: number }> {
+  const existingRows = await fetchAllPages<ExistingEventRow>(
+    async (from, to) => {
+      const { data, error } = await client
+        .from(DatabaseTable.earningsEvents)
+        .select('id,company_id,period_end,detected_at,previous_event_id,grouping_metadata')
+        .order('company_id')
+        .order('period_end')
+        .order('id')
+        .range(from, to)
+
+      return { data: data as ExistingEventRow[] | null, error }
+    },
+    'Could not load earnings events',
+  )
+  const existingByKey = new Map(
+    existingRows.map((event) => [eventKey(event.company_id, event.period_end), event]),
+  )
+  let changedEvents = 0
+  let linkedFilings = 0
+
+  for (const group of groups) {
+    const key = eventKey(group.companyId, group.periodEnd)
+    const existing = existingByKey.get(key)
+    const unchanged = existing
+      && existing.grouping_metadata?.ruleVersion === group.ruleVersion
+      && sameFilingIds(existing.grouping_metadata.filingIds, group.filingIds)
+
+    if (unchanged) continue
+
+    const groupingMetadata = {
+      ruleVersion: group.ruleVersion,
+      anchorAccessionNumber: group.anchorAccessionNumber,
+      filingIds: group.filingIds,
+      groupedAt: new Date().toISOString(),
+    }
+    let eventId = existing?.id
+
+    if (eventId) {
+      const { error: updateError } = await client
+        .from(DatabaseTable.earningsEvents)
+        .update({ grouping_metadata: groupingMetadata })
+        .eq('id', eventId)
+      if (updateError) throw new Error(`Could not update earnings event: ${updateError.message}`)
+    } else {
+      const detectedAt = new Date().toISOString()
+      const { data: inserted, error: insertError } = await client
+        .from(DatabaseTable.earningsEvents)
+        .insert({
+          company_id: group.companyId,
+          fiscal_year: null,
+          fiscal_quarter: null,
+          period_end: group.periodEnd,
+          detected_at: detectedAt,
+          status: EarningsEventStatus.detected,
+          grouping_metadata: groupingMetadata,
+        })
+        .select('id')
+        .single()
+      if (insertError) throw new Error(`Could not create earnings event: ${insertError.message}`)
+      eventId = inserted.id as string
+      existingByKey.set(key, {
+        id: eventId,
+        company_id: group.companyId,
+        period_end: group.periodEnd,
+        detected_at: detectedAt,
+        previous_event_id: null,
+        grouping_metadata: groupingMetadata,
+      })
+    }
+
+    const removedFilingIds = existing?.grouping_metadata?.filingIds
+      ?.filter((filingId) => !group.filingIds.includes(filingId)) ?? []
+    if (removedFilingIds.length > 0) {
+      const { error: unlinkFilingsError } = await client
+        .from(DatabaseTable.secFilings)
+        .update({ earnings_event_id: null })
+        .in('id', removedFilingIds)
+      if (unlinkFilingsError) throw new Error(`Could not unlink SEC filings: ${unlinkFilingsError.message}`)
+
+      const { error: unlinkDocumentsError } = await client
+        .from(DatabaseTable.documents)
+        .update({ earnings_event_id: null })
+        .in('filing_id', removedFilingIds)
+      if (unlinkDocumentsError) throw new Error(`Could not unlink documents: ${unlinkDocumentsError.message}`)
+    }
+
+    const { error: linkFilingsError } = await client
+      .from(DatabaseTable.secFilings)
+      .update({ earnings_event_id: eventId })
+      .in('id', group.filingIds)
+    if (linkFilingsError) throw new Error(`Could not link SEC filings: ${linkFilingsError.message}`)
+
+    const { error: linkDocumentsError } = await client
+      .from(DatabaseTable.documents)
+      .update({ earnings_event_id: eventId })
+      .in('filing_id', group.filingIds)
+    if (linkDocumentsError) throw new Error(`Could not link documents: ${linkDocumentsError.message}`)
+
+    changedEvents += 1
+    linkedFilings += group.filingIds.length
+  }
+
+  const refreshed = await fetchAllPages<PreviousEventRow>(
+    async (from, to) => {
+      const { data, error } = await client
+        .from(DatabaseTable.earningsEvents)
+        .select('id,company_id,period_end,previous_event_id')
+        .order('company_id')
+        .order('period_end')
+        .order('id')
+        .range(from, to)
+
+      return { data, error }
+    },
+    'Could not refresh earnings events',
+  )
+
+  const previousByCompany = new Map<string, string>()
+  for (const event of refreshed) {
+    const expectedPreviousId = previousByCompany.get(event.company_id) ?? null
+    if (event.previous_event_id !== expectedPreviousId) {
+      const { error: previousError } = await client
+        .from(DatabaseTable.earningsEvents)
+        .update({ previous_event_id: expectedPreviousId })
+        .eq('id', event.id)
+      if (previousError) throw new Error(`Could not link previous earnings event: ${previousError.message}`)
+    }
+    previousByCompany.set(event.company_id, event.id)
+  }
+
+  return { changedEvents, linkedFilings }
+}

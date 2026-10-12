@@ -1,4 +1,10 @@
-const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'SEC_USER_AGENT'] as const
+import { defaultSecLookbackDays, EnvironmentVariable } from './constants.js'
+
+const requiredKeys = [
+  EnvironmentVariable.supabaseUrl,
+  EnvironmentVariable.supabaseSecretKey,
+  EnvironmentVariable.secUserAgent,
+] as const
 
 export interface WorkerConfig {
   supabaseUrl: string
@@ -14,16 +20,19 @@ export function loadConfig(): WorkerConfig {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
   }
 
-  const lookback = Number.parseInt(process.env.SEC_LOOKBACK_DAYS ?? '730', 10)
+  const lookback = Number.parseInt(
+    process.env[EnvironmentVariable.secLookbackDays] ?? String(defaultSecLookbackDays),
+    10,
+  )
 
   if (!Number.isInteger(lookback) || lookback < 1) {
     throw new Error('SEC_LOOKBACK_DAYS must be a positive integer')
   }
 
   return {
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseSecretKey: process.env.SUPABASE_SECRET_KEY!,
-    secUserAgent: process.env.SEC_USER_AGENT!,
+    supabaseUrl: process.env[EnvironmentVariable.supabaseUrl]!,
+    supabaseSecretKey: process.env[EnvironmentVariable.supabaseSecretKey]!,
+    secUserAgent: process.env[EnvironmentVariable.secUserAgent]!,
     secLookbackDays: lookback,
   }
 }

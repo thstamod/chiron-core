@@ -6,6 +6,13 @@ import type {
   TrackedCompany,
 } from '@chiron/shared'
 import type { WorkerConfig } from './config.js'
+import {
+  DatabaseTable,
+  type FinishedJobStatus,
+  JobStatus,
+  WorkerLimit,
+} from './constants.js'
+import { fetchAllPages } from './pagination.js'
 
 interface CompanyRow {
   id: string
@@ -30,10 +37,20 @@ interface FilingRow {
   filing_date: string
   accepted_at: string | null
   first_seen_at: string
+  report_date: string | null
   primary_document: string
   items: string[] | null
+  sec_index_url: string
   earnings_classification: unknown
+  exhibit_discovery: unknown
+  earnings_event_id: string | null
   companies: FilingCompanyRow | FilingCompanyRow[]
+}
+
+function versionFromJson(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const version = (value as { ruleVersion?: unknown }).ruleVersion
+  return typeof version === 'string' ? version : null
 }
 
 function parseClassification(value: unknown): SecEarningsClassification | null {
@@ -64,7 +81,7 @@ export function createDatabaseClient(config: WorkerConfig): SupabaseClient {
 
 export async function checkDatabase(client: SupabaseClient): Promise<number> {
   const { count, error } = await client
-    .from('companies')
+    .from(DatabaseTable.companies)
     .select('id', { count: 'exact' })
     .limit(1)
 
@@ -77,7 +94,7 @@ export async function checkDatabase(client: SupabaseClient): Promise<number> {
 
 export async function getActiveCompanies(client: SupabaseClient): Promise<TrackedCompany[]> {
   const { data, error } = await client
-    .from('companies')
+    .from(DatabaseTable.companies)
     .select('id,cik,legal_name,ticker,exchange,sector,is_active')
     .eq('is_active', true)
     .order('ticker')
@@ -100,8 +117,8 @@ export async function getActiveCompanies(client: SupabaseClient): Promise<Tracke
 export async function saveFilingCandidates(
   client: SupabaseClient,
   filings: SecFilingCandidate[],
-): Promise<void> {
-  if (filings.length === 0) return
+): Promise<number> {
+  if (filings.length === 0) return 0
 
   const firstSeenAt = new Date().toISOString()
   const rows = filings.map((filing) => ({
@@ -118,40 +135,52 @@ export async function saveFilingCandidates(
     metadata: filing.metadata,
   }))
 
-  const { error } = await client
-    .from('sec_filings')
+  const { data, error } = await client
+    .from(DatabaseTable.secFilings)
     .upsert(rows, { onConflict: 'accession_number', ignoreDuplicates: true })
+    .select('id')
 
   if (error) {
     throw new Error(`Could not save SEC filings: ${error.message}`)
   }
+
+  return data?.length ?? 0
 }
 
 export async function getFilingsForDocumentSync(
   client: SupabaseClient,
 ): Promise<SecFilingRecord[]> {
-  const { data, error } = await client
-    .from('sec_filings')
-    .select(`
-      id,
-      company_id,
-      accession_number,
-      form_type,
-      filing_date,
-      accepted_at,
-      first_seen_at,
-      primary_document,
-      items,
-      earnings_classification,
-      companies!inner(cik,ticker)
-    `)
-    .order('filing_date', { ascending: false })
+  const data = await fetchAllPages<FilingRow>(
+    async (from, to) => {
+      const { data: page, error } = await client
+        .from(DatabaseTable.secFilings)
+        .select(`
+          id,
+          company_id,
+          accession_number,
+          form_type,
+          filing_date,
+          accepted_at,
+          first_seen_at,
+          report_date,
+          primary_document,
+          items,
+          sec_index_url,
+          earnings_classification,
+          exhibit_discovery,
+          earnings_event_id,
+          companies!inner(cik,ticker)
+        `)
+        .order('filing_date', { ascending: false })
+        .order('id')
+        .range(from, to)
 
-  if (error) {
-    throw new Error(`Could not load SEC filings for document sync: ${error.message}`)
-  }
+      return { data: page as unknown as FilingRow[] | null, error }
+    },
+    'Could not load SEC filings for document sync',
+  )
 
-  return ((data ?? []) as unknown as FilingRow[]).map((filing) => {
+  return data.map((filing) => {
     const company = Array.isArray(filing.companies) ? filing.companies[0] : filing.companies
     if (!company) {
       throw new Error(`Filing ${filing.accession_number} has no related company`)
@@ -167,9 +196,13 @@ export async function getFilingsForDocumentSync(
       filingDate: filing.filing_date,
       acceptedAt: filing.accepted_at,
       firstSeenAt: filing.first_seen_at,
+      reportDate: filing.report_date,
       primaryDocument: filing.primary_document,
       items: filing.items ?? [],
+      secIndexUrl: filing.sec_index_url,
       earningsClassification: parseClassification(filing.earnings_classification),
+      exhibitDiscoveryVersion: versionFromJson(filing.exhibit_discovery),
+      earningsEventId: filing.earnings_event_id,
     }
   })
 }
@@ -180,7 +213,7 @@ export async function updateFilingClassification(
   classification: SecEarningsClassification,
 ): Promise<void> {
   const { error } = await client
-    .from('sec_filings')
+    .from(DatabaseTable.secFilings)
     .update({ earnings_classification: classification })
     .eq('id', filingId)
 
@@ -189,18 +222,72 @@ export async function updateFilingClassification(
   }
 }
 
-export async function getStoredPrimaryDocumentFilingIds(
+export async function getStoredDocumentSourceUrls(
   client: SupabaseClient,
 ): Promise<Set<string>> {
-  const { data, error } = await client
-    .from('documents')
-    .select('filing_id')
-    .eq('document_type', 'sec-primary-document')
-    .not('filing_id', 'is', null)
+  const data = await fetchAllPages<{ source_url: string }>(
+    async (from, to) => {
+      const { data: page, error } = await client
+        .from(DatabaseTable.documents)
+        .select('source_url')
+        .order('source_url')
+        .range(from, to)
+
+      return { data: page, error }
+    },
+    'Could not load stored SEC documents',
+  )
+
+  return new Set(data.map((row) => row.source_url))
+}
+
+export async function updateExhibitDiscovery(
+  client: SupabaseClient,
+  filingId: string,
+  discovery: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await client
+    .from(DatabaseTable.secFilings)
+    .update({ exhibit_discovery: discovery })
+    .eq('id', filingId)
 
   if (error) {
-    throw new Error(`Could not load stored SEC documents: ${error.message}`)
+    throw new Error(`Could not save exhibit discovery: ${error.message}`)
+  }
+}
+
+export async function createJobRun(client: SupabaseClient, jobName: string): Promise<string> {
+  const { data, error } = await client
+    .from(DatabaseTable.jobRuns)
+    .insert({ job_name: jobName, status: JobStatus.running })
+    .select('id')
+    .single()
+
+  if (error) {
+    throw new Error(`Could not create job run: ${error.message}`)
   }
 
-  return new Set((data ?? []).map((row) => row.filing_id as string))
+  return data.id as string
+}
+
+export async function finishJobRun(
+  client: SupabaseClient,
+  jobRunId: string,
+  status: FinishedJobStatus,
+  details: Record<string, unknown>,
+  errorSummary: string | null = null,
+): Promise<void> {
+  const { error } = await client
+    .from(DatabaseTable.jobRuns)
+    .update({
+      status,
+      finished_at: new Date().toISOString(),
+      error_summary: errorSummary?.slice(0, WorkerLimit.errorSummaryCharacters) ?? null,
+      details,
+    })
+    .eq('id', jobRunId)
+
+  if (error) {
+    throw new Error(`Could not finish job run: ${error.message}`)
+  }
 }

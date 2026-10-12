@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ScoreFormat, UiText } from './constants'
 import { demoEvents } from './demo-data'
 
 const selectedId = ref(demoEvents[0]?.id ?? '')
 const selectedEvent = computed(() => demoEvents.find((event) => event.id === selectedId.value) ?? demoEvents[0])
 
 function scoreLabel(score: number): string {
-  return score > 0 ? `+${score}` : String(score)
+  return score > 0 ? `${ScoreFormat.positivePrefix}${score}` : String(score)
 }
 </script>
 
@@ -80,7 +81,7 @@ function scoreLabel(score: number): string {
                 <td><button class="row-button" type="button" @click.stop="selectedId = event.id"><strong>{{ event.company }}</strong><span>{{ event.ticker }}</span></button></td>
                 <td>{{ scoreLabel(event.score) }}</td>
                 <td><span class="status-pill" :class="event.guidance">{{ event.guidance }}</span></td>
-                <td>{{ event.marketComparison === null ? 'Waiting' : `${event.marketComparison > 0 ? '+' : ''}${event.marketComparison}%` }}</td>
+                <td>{{ event.marketComparison === null ? UiText.waitingForResult : `${event.marketComparison > 0 ? ScoreFormat.positivePrefix : ''}${event.marketComparison}%` }}</td>
                 <td class="capitalize">{{ event.status }}</td>
               </tr>
             </tbody>

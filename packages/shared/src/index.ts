@@ -64,7 +64,19 @@ export interface SecFilingRecord {
   filingDate: string
   acceptedAt: string | null
   firstSeenAt: string
+  reportDate: string | null
   primaryDocument: string
   items: string[]
+  secIndexUrl: string
   earningsClassification: SecEarningsClassification | null
+  exhibitDiscoveryVersion: string | null
+  earningsEventId: string | null
+}
+
+export interface EarningsEventGroup {
+  companyId: string
+  periodEnd: string
+  anchorAccessionNumber: string
+  filingIds: string[]
+  ruleVersion: string
 }

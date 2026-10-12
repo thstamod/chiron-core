@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import App from './App.vue'
+import { WebAppConfig } from './constants'
 import './styles.css'
 
-createApp(App).mount('#app')
+createApp(App).mount(WebAppConfig.mountSelector)

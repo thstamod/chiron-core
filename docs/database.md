@@ -50,6 +50,8 @@ Important fields:
 - `items`: the numbered subjects reported in an `8-K`.
 - `earnings_classification`: the versioned rule result explaining whether Chiron considers
   the filing earnings-related.
+- `earnings_event_id`: the grouped earnings event, when a reliable periodic-report anchor exists.
+- `exhibit_discovery`: the versioned result of checking the SEC index for Exhibit `99.1`.
 
 The first classification rule considers `10-Q` and `10-K` financial reports earnings-related.
 It also includes an `8-K` when it contains item `2.02`, which means results of operations and
@@ -79,9 +81,15 @@ Important fields:
 
 - `period_end`: the final date of the reported financial period.
 - `fiscal_year` and `fiscal_quarter`: the company's own reporting year and quarter.
-- `detected_at`: when Chiron recognized the event.
+- `detected_at`: when Chiron created the event record. This is separate from the SEC document's
+  publication time and the time Chiron first saw each filing.
 - `previous_event_id`: the previous comparable event, used for change detection.
 - `status`: how far the event has progressed through ingestion, prediction, and evaluation.
+- `grouping_metadata`: the versioned rule and exact filing IDs used to form the event.
+
+The first grouping rule anchors an event on a `10-Q` or `10-K`, which provides a reported period
+end, and attaches the nearest earnings `8-K` within seven days. Fiscal year and quarter remain
+empty until XBRL provides reliable values; Chiron does not infer them from calendar dates.
 
 ### `financial_metrics`
 
@@ -150,7 +158,8 @@ points.
 ### `job_runs`
 
 Operational history for scheduled background work such as checking the SEC, downloading
-documents, or calculating evaluations.
+documents, grouping events, or calculating evaluations. A successful row is recorded even when
+the job correctly finds no new data.
 
 Important fields:
 

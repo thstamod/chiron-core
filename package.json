@@ -11,6 +11,7 @@
     "worker:health": "pnpm --filter @chiron/worker health",
     "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",
     "worker:sync-documents": "pnpm --filter @chiron/worker sync:documents",
+    "worker:sync-events": "pnpm --filter @chiron/worker sync:events",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

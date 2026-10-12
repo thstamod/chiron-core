@@ -16,7 +16,8 @@ Phase 1 provides:
 - Separate boundaries for future private research code.
 
 SEC metadata ingestion is active. The worker can classify earnings-related filings with a
-versioned transparent rule and preserve their original primary documents in private storage.
+versioned transparent rule, preserve primary documents and Exhibit 99.1 earnings releases,
+and group related filings into earnings events.
 LLM extraction, stock prices, and predictions are not active yet.
 
 ## Requirements
@@ -45,6 +46,9 @@ supabase       Database migrations
 See [Database guide](docs/database.md) for a plain-language explanation of every table,
 their relationships, and the private SEC document bucket.
 
+See [Visual code guide](docs/visual-guide.md) for Mermaid diagrams explaining the project,
+its files, worker functions, database relationships, and the future research pipeline.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` only when connecting external services. Never commit `.env`.
@@ -57,11 +61,20 @@ After applying the Supabase migrations, verify the connection and run the filing
 pnpm worker:health
 pnpm worker:sync-filings
 pnpm worker:sync-documents
+pnpm worker:sync-events
 ```
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations
 and financial condition. Other `8-K` filings are retained as metadata but are not downloaded.
+
+For an earnings-related `8-K`, the worker also checks the SEC filing index for Exhibit `99.1`,
+which commonly contains the detailed earnings press release. Event grouping uses a `10-Q` or
+`10-K` reported period as its anchor and attaches the nearest item `2.02` filing within seven
+days. Fiscal year and quarter remain empty until structured SEC data can establish them.
+
+Every scheduled command records its start time, completion status, and result counts in
+`job_runs`, including runs that correctly find no new filings.
 
 The scheduled GitHub workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SEC_USER_AGENT` repository secrets. Enable it only after the local sync succeeds.
 It checks once per hour on weekdays to keep free-tier usage comfortably low.
