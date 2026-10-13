@@ -26,6 +26,15 @@ export const SecRequest = {
   archivePathPrefix: '/Archives/',
   filingTableRowsSelector: 'table.tableFile tr',
   exhibitTypePattern: /^EX-99\.0?1$/,
+  retryAfterHeader: 'retry-after',
+} as const
+
+export const SecRequestPolicy = {
+  minimumIntervalMs: 200,
+  maximumAttempts: 3,
+  baseRetryDelayMs: 1_000,
+  maximumRetryDelayMs: 10_000,
+  retryableStatuses: new Set([408, 429, 500, 502, 503, 504]),
 } as const
 
 export const EarningsCategory = {
@@ -96,7 +105,6 @@ const millisecondsPerDay = 86_400_000
 export const WorkerTiming = {
   millisecondsPerDay,
   secRequestTimeoutMs: 30_000,
-  secRequestDelayMs: 125,
   eventGroupingWindowMs: 7 * millisecondsPerDay,
 } as const
 

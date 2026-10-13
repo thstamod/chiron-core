@@ -12,8 +12,8 @@ import {
   SecRequest,
   SecUrl,
   supportedSecForms,
-  WorkerTiming,
 } from './constants.js'
+import { fetchSecResource } from './sec-request.js'
 
 export const earningsClassificationRuleVersion = RuleVersion.earningsClassification
 
@@ -156,13 +156,13 @@ export async function fetchRecentFilings(
   cutoffDate: string,
 ): Promise<SecFilingCandidate[]> {
   const paddedCik = company.cik.padStart(10, '0')
-  const response = await fetch(`${SecUrl.submissionsBase}/CIK${paddedCik}.json`, {
+  const response = await fetchSecResource({
+    url: `${SecUrl.submissionsBase}/CIK${paddedCik}.json`,
     headers: {
       Accept: SecRequest.submissionsAccept,
       'Accept-Encoding': SecRequest.acceptedEncoding,
       'User-Agent': userAgent,
     },
-    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
   })
 
   if (!response.ok) {

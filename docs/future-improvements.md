@@ -180,18 +180,19 @@ simplest appropriate first step.
 
 ### Apply one rate limiter to every SEC request
 
-**Status:** Agreed, not implemented
+**Status:** Implemented on 2026-10-13
 
 **Priority:** High — required before expanding the watchlist
 
 #### Current behavior
 
-SEC requests run sequentially, and the worker waits briefly after storing a downloaded document.
-However, the company-submissions requests and filing-index requests do not use the same explicit
-delay. The effective request rate therefore depends partly on network response time instead of one
-enforced application-wide limit.
+Every SEC request now passes through one shared request client. It spaces request starts by at least
+200 ms, applies a fresh timeout to every attempt, and retries temporary network failures and HTTP
+statuses `408`, `429`, `500`, `502`, `503`, and `504` up to three attempts. It honors a
+`Retry-After` header within a bounded maximum delay. Company submissions, filing-index pages,
+primary documents, and exhibits all use this client.
 
-#### Proposed behavior
+#### Implemented behavior
 
 1. Route every SEC network request through one shared rate limiter.
 2. Enforce a conservative minimum interval, initially 200 ms, for a maximum of approximately five

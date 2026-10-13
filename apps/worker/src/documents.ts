@@ -11,9 +11,9 @@ import {
   SecRequest,
   SecUrl,
   StorageConfig,
-  WorkerTiming,
 } from './constants.js'
 import { buildSecPrimaryDocumentUrl } from './sec.js'
+import { fetchSecResource } from './sec-request.js'
 
 export const exhibitDiscoveryRuleVersion = RuleVersion.exhibitDiscovery
 
@@ -80,13 +80,13 @@ export async function fetchEarningsReleaseExhibits(
   filing: SecFilingRecord,
   secUserAgent: string,
 ): Promise<SecDocumentCandidate[]> {
-  const response = await fetch(filing.secIndexUrl, {
+  const response = await fetchSecResource({
+    url: filing.secIndexUrl,
     headers: {
       Accept: SecRequest.indexAccept,
       'Accept-Encoding': SecRequest.acceptedEncoding,
       'User-Agent': secUserAgent,
     },
-    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
   })
 
   if (!response.ok) {
@@ -119,13 +119,13 @@ export async function downloadAndStoreDocument(
   candidate: SecDocumentCandidate,
   secUserAgent: string,
 ): Promise<void> {
-  const response = await fetch(candidate.sourceUrl, {
+  const response = await fetchSecResource({
+    url: candidate.sourceUrl,
     headers: {
       Accept: SecRequest.documentAccept,
       'Accept-Encoding': SecRequest.acceptedEncoding,
       'User-Agent': secUserAgent,
     },
-    signal: AbortSignal.timeout(WorkerTiming.secRequestTimeoutMs),
   })
 
   if (!response.ok) {

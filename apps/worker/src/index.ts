@@ -101,7 +101,6 @@ async function syncDocuments(
       storedSourceUrls.add(primaryDocument.sourceUrl)
       primaryDocumentsStored += 1
       console.log(`${filing.ticker}: stored ${filing.formType} ${filing.accessionNumber}`)
-      await new Promise((resolve) => setTimeout(resolve, WorkerTiming.secRequestDelayMs))
     }
 
     if (
@@ -117,7 +116,6 @@ async function syncDocuments(
         storedSourceUrls.add(exhibit.sourceUrl)
         exhibitsStored += 1
         console.log(`${filing.ticker}: stored Exhibit 99.1 ${exhibit.filename}`)
-        await new Promise((resolve) => setTimeout(resolve, WorkerTiming.secRequestDelayMs))
       }
 
       await updateExhibitDiscovery(client, filing.id, {

@@ -10,3 +10,4 @@ coverage/
 *.tsbuildinfo
 .idea/
 .vscode/
+_*.md
