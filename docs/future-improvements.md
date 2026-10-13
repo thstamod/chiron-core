@@ -137,19 +137,19 @@ for live predictions.
 
 ### Make event-group persistence recoverable
 
-**Status:** Agreed, not implemented
+**Status:** Implemented on 2026-10-13
 
 **Priority:** High — required before live predictions
 
 #### Current behavior
 
-The worker writes an event's final `grouping_metadata` before it finishes unlinking removed filings
-and linking the current filings and documents. These are separate database requests. If a later
-request fails, the metadata can describe a completed grouping while some relationships remain
-incorrect. On the next run, matching metadata can cause the worker to treat the event as unchanged
-and skip the repairs.
+The worker creates a new event with incomplete grouping metadata, updates every filing and document
+relationship, and writes the final `grouping_metadata` only after those operations succeed. A
+versioned persistence marker forces events written by the earlier unsafe order through the new path
+once. If a relationship update fails, the completion metadata remains missing or outdated, so the
+next run tries the operation again.
 
-#### Proposed behavior
+#### Implemented behavior
 
 1. Create or find the earnings event without marking the new grouping as complete.
 2. Unlink filings and documents removed from the group.
@@ -172,11 +172,47 @@ simplest appropriate first step.
 
 #### Acceptance checks
 
-- Simulate a failure after each database write in the grouping process.
-- Every partially completed case is repaired by the next run.
-- An event is considered unchanged only after all expected filing and document links exist.
-- The original event detection timestamp remains unchanged during retries.
-- Automated tests cover both new-event and changed-event failure recovery.
+- Automated tests confirm that completion metadata is written after all relationship steps.
+- Automated tests simulate each relationship phase failing and confirm that completion metadata is
+  not written.
+- New events are inserted without completed grouping metadata.
+- Existing events without the persistence version are processed once through the safer write order.
+- A live verification upgraded 40 existing groups on its first run and changed zero groups on the
+  immediately repeated run.
+- Existing event detection timestamps are not included in any retry or completion update.
+
+### Represent incomplete event grouping with an explicit status
+
+**Status:** Agreed, not implemented
+
+**Priority:** Next iteration
+
+#### Current behavior
+
+A newly created earnings event immediately has the `detected` status, even though its filing and
+document relationships may still be incomplete. An empty or outdated `grouping_metadata` value is
+the technical marker that tells the worker to retry the grouping operation.
+
+#### Proposed behavior
+
+1. Add an explicit event status such as `grouping_pending`.
+2. Create an event with that status before linking its filings and documents.
+3. Change the status to `detected` only after every relationship and the completed grouping
+   metadata have been saved successfully.
+4. Keep incomplete events visible for retrying and operational review.
+
+#### What this improves
+
+- The event status directly describes whether grouping is complete.
+- Database rows are easier for contributors and operators to understand.
+- Incomplete events can be queried without interpreting the contents of `grouping_metadata`.
+
+#### Acceptance checks
+
+- New events begin with `grouping_pending`.
+- A successful grouping changes the status to `detected` only at the final completion step.
+- A failed relationship update leaves the status as `grouping_pending`.
+- A later worker run can complete the event without changing its original detection timestamp.
 
 ### Apply one rate limiter to every SEC request
 

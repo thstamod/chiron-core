@@ -47,6 +47,7 @@ export const RuleVersion = {
   earningsClassification: 'sec-earnings-v1',
   exhibitDiscovery: 'sec-exhibits-v1',
   eventGrouping: 'sec-event-grouping-v1',
+  eventPersistence: 'earnings-event-persistence-v1',
 } as const
 
 export const SecDocumentType = {

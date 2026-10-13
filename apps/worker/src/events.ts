@@ -13,6 +13,7 @@ import { fetchAllPages } from './pagination.js'
 import { classifyEarningsFiling } from './sec.js'
 
 export const eventGroupingRuleVersion = RuleVersion.eventGrouping
+export const eventPersistenceVersion = RuleVersion.eventPersistence
 
 function filingTimestamp(filing: SecFilingRecord): number {
   return new Date(filing.acceptedAt ?? filing.firstSeenAt).getTime()
@@ -90,6 +91,7 @@ interface ExistingEventRow {
   previous_event_id: string | null
   grouping_metadata: {
     ruleVersion?: string
+    persistenceVersion?: string
     filingIds?: string[]
   } | null
 }
@@ -104,6 +106,103 @@ interface PreviousEventRow {
 function sameFilingIds(left: string[] | undefined, right: string[]): boolean {
   if (!left || left.length !== right.length) return false
   return [...left].sort().every((value, index) => value === right[index])
+}
+
+export interface EventGroupPersistenceActions {
+  unlinkRemovedRelationships: () => Promise<void>
+  linkCurrentFilings: () => Promise<void>
+  linkCurrentDocuments: () => Promise<void>
+  saveCompletedGroupingMetadata: () => Promise<void>
+}
+
+export async function persistEarningsEventGroup(
+  actions: EventGroupPersistenceActions,
+): Promise<void> {
+  await actions.unlinkRemovedRelationships()
+  await actions.linkCurrentFilings()
+  await actions.linkCurrentDocuments()
+  await actions.saveCompletedGroupingMetadata()
+}
+
+async function createPendingEarningsEvent(
+  client: SupabaseClient,
+  group: EarningsEventGroup,
+): Promise<{ eventId: string; detectedAt: string }> {
+  const detectedAt = new Date().toISOString()
+  const { data: insertedEvent, error: insertError } = await client
+    .from(DatabaseTable.earningsEvents)
+    .insert({
+      company_id: group.companyId,
+      fiscal_year: null,
+      fiscal_quarter: null,
+      period_end: group.periodEnd,
+      detected_at: detectedAt,
+      status: EarningsEventStatus.detected,
+    })
+    .select('id')
+    .single()
+
+  if (insertError) throw new Error(`Could not create earnings event: ${insertError.message}`)
+  return { eventId: insertedEvent.id as string, detectedAt }
+}
+
+async function unlinkRemovedEventRelationships(
+  client: SupabaseClient,
+  removedFilingIds: string[],
+): Promise<void> {
+  if (removedFilingIds.length === 0) return
+
+  const { error: unlinkFilingsError } = await client
+    .from(DatabaseTable.secFilings)
+    .update({ earnings_event_id: null })
+    .in('id', removedFilingIds)
+  if (unlinkFilingsError) {
+    throw new Error(`Could not unlink SEC filings: ${unlinkFilingsError.message}`)
+  }
+
+  const { error: unlinkDocumentsError } = await client
+    .from(DatabaseTable.documents)
+    .update({ earnings_event_id: null })
+    .in('filing_id', removedFilingIds)
+  if (unlinkDocumentsError) {
+    throw new Error(`Could not unlink documents: ${unlinkDocumentsError.message}`)
+  }
+}
+
+async function linkCurrentFilingsToEvent(
+  client: SupabaseClient,
+  eventId: string,
+  filingIds: string[],
+): Promise<void> {
+  const { error } = await client
+    .from(DatabaseTable.secFilings)
+    .update({ earnings_event_id: eventId })
+    .in('id', filingIds)
+  if (error) throw new Error(`Could not link SEC filings: ${error.message}`)
+}
+
+async function linkCurrentDocumentsToEvent(
+  client: SupabaseClient,
+  eventId: string,
+  filingIds: string[],
+): Promise<void> {
+  const { error } = await client
+    .from(DatabaseTable.documents)
+    .update({ earnings_event_id: eventId })
+    .in('filing_id', filingIds)
+  if (error) throw new Error(`Could not link documents: ${error.message}`)
+}
+
+async function saveCompletedGroupingMetadata(
+  client: SupabaseClient,
+  eventId: string,
+  groupingMetadata: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await client
+    .from(DatabaseTable.earningsEvents)
+    .update({ grouping_metadata: groupingMetadata })
+    .eq('id', eventId)
+  if (error) throw new Error(`Could not complete earnings event grouping: ${error.message}`)
 }
 
 export async function saveEarningsEventGroups(
@@ -135,78 +234,45 @@ export async function saveEarningsEventGroups(
     const existing = existingByKey.get(key)
     const unchanged = existing
       && existing.grouping_metadata?.ruleVersion === group.ruleVersion
+      && existing.grouping_metadata.persistenceVersion === eventPersistenceVersion
       && sameFilingIds(existing.grouping_metadata.filingIds, group.filingIds)
 
     if (unchanged) continue
 
     const groupingMetadata = {
       ruleVersion: group.ruleVersion,
+      persistenceVersion: eventPersistenceVersion,
       anchorAccessionNumber: group.anchorAccessionNumber,
       filingIds: group.filingIds,
       groupedAt: new Date().toISOString(),
     }
     let eventId = existing?.id
 
-    if (eventId) {
-      const { error: updateError } = await client
-        .from(DatabaseTable.earningsEvents)
-        .update({ grouping_metadata: groupingMetadata })
-        .eq('id', eventId)
-      if (updateError) throw new Error(`Could not update earnings event: ${updateError.message}`)
-    } else {
-      const detectedAt = new Date().toISOString()
-      const { data: inserted, error: insertError } = await client
-        .from(DatabaseTable.earningsEvents)
-        .insert({
-          company_id: group.companyId,
-          fiscal_year: null,
-          fiscal_quarter: null,
-          period_end: group.periodEnd,
-          detected_at: detectedAt,
-          status: EarningsEventStatus.detected,
-          grouping_metadata: groupingMetadata,
-        })
-        .select('id')
-        .single()
-      if (insertError) throw new Error(`Could not create earnings event: ${insertError.message}`)
-      eventId = inserted.id as string
+    if (!eventId) {
+      const createdEvent = await createPendingEarningsEvent(client, group)
+      eventId = createdEvent.eventId
       existingByKey.set(key, {
         id: eventId,
         company_id: group.companyId,
         period_end: group.periodEnd,
-        detected_at: detectedAt,
+        detected_at: createdEvent.detectedAt,
         previous_event_id: null,
-        grouping_metadata: groupingMetadata,
+        grouping_metadata: {},
       })
     }
 
     const removedFilingIds = existing?.grouping_metadata?.filingIds
       ?.filter((filingId) => !group.filingIds.includes(filingId)) ?? []
-    if (removedFilingIds.length > 0) {
-      const { error: unlinkFilingsError } = await client
-        .from(DatabaseTable.secFilings)
-        .update({ earnings_event_id: null })
-        .in('id', removedFilingIds)
-      if (unlinkFilingsError) throw new Error(`Could not unlink SEC filings: ${unlinkFilingsError.message}`)
-
-      const { error: unlinkDocumentsError } = await client
-        .from(DatabaseTable.documents)
-        .update({ earnings_event_id: null })
-        .in('filing_id', removedFilingIds)
-      if (unlinkDocumentsError) throw new Error(`Could not unlink documents: ${unlinkDocumentsError.message}`)
-    }
-
-    const { error: linkFilingsError } = await client
-      .from(DatabaseTable.secFilings)
-      .update({ earnings_event_id: eventId })
-      .in('id', group.filingIds)
-    if (linkFilingsError) throw new Error(`Could not link SEC filings: ${linkFilingsError.message}`)
-
-    const { error: linkDocumentsError } = await client
-      .from(DatabaseTable.documents)
-      .update({ earnings_event_id: eventId })
-      .in('filing_id', group.filingIds)
-    if (linkDocumentsError) throw new Error(`Could not link documents: ${linkDocumentsError.message}`)
+    await persistEarningsEventGroup({
+      unlinkRemovedRelationships: () => unlinkRemovedEventRelationships(client, removedFilingIds),
+      linkCurrentFilings: () => linkCurrentFilingsToEvent(client, eventId, group.filingIds),
+      linkCurrentDocuments: () => linkCurrentDocumentsToEvent(client, eventId, group.filingIds),
+      saveCompletedGroupingMetadata: () => saveCompletedGroupingMetadata(
+        client,
+        eventId,
+        groupingMetadata,
+      ),
+    })
 
     changedEvents += 1
     linkedFilings += group.filingIds.length

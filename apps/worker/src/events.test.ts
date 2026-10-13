@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { SecFilingRecord } from '@chiron/shared'
-import { buildEarningsEventGroups, eventGroupingRuleVersion } from './events.js'
+import {
+  buildEarningsEventGroups,
+  eventGroupingRuleVersion,
+  persistEarningsEventGroup,
+  type EventGroupPersistenceActions,
+} from './events.js'
 
 function filing(overrides: Partial<SecFilingRecord>): SecFilingRecord {
   return {
@@ -54,4 +59,52 @@ test('groups a nearby item 2.02 filing with its periodic report', () => {
   assert.equal(groups[0]?.periodEnd, '2026-06-30')
   assert.deepEqual(groups[0]?.filingIds, ['earnings-release', 'quarterly-report'])
   assert.equal(groups[0]?.ruleVersion, eventGroupingRuleVersion)
+})
+
+function persistenceActions(
+  completedSteps: string[],
+  failingStep?: string,
+): EventGroupPersistenceActions {
+  const runStep = async (step: string): Promise<void> => {
+    completedSteps.push(step)
+    if (step === failingStep) throw new Error(`${step} failed`)
+  }
+
+  return {
+    unlinkRemovedRelationships: () => runStep('unlink removed relationships'),
+    linkCurrentFilings: () => runStep('link current filings'),
+    linkCurrentDocuments: () => runStep('link current documents'),
+    saveCompletedGroupingMetadata: () => runStep('save completed grouping metadata'),
+  }
+}
+
+test('saves completed grouping metadata after every relationship update', async () => {
+  const completedSteps: string[] = []
+
+  await persistEarningsEventGroup(persistenceActions(completedSteps))
+
+  assert.deepEqual(completedSteps, [
+    'unlink removed relationships',
+    'link current filings',
+    'link current documents',
+    'save completed grouping metadata',
+  ])
+})
+
+test('does not mark grouping complete after a relationship update fails', async () => {
+  const relationshipSteps = [
+    'unlink removed relationships',
+    'link current filings',
+    'link current documents',
+  ]
+
+  for (const failingStep of relationshipSteps) {
+    const completedSteps: string[] = []
+
+    await assert.rejects(
+      persistEarningsEventGroup(persistenceActions(completedSteps, failingStep)),
+      new RegExp(`${failingStep} failed`),
+    )
+    assert.equal(completedSteps.includes('save completed grouping metadata'), false)
+  }
 })
