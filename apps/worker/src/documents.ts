@@ -24,6 +24,25 @@ export interface SecDocumentCandidate {
   description: string | null
 }
 
+export interface SecDocumentPersistenceActions {
+  storageObjectExists: () => Promise<boolean>
+  verifyExistingStorageObject: () => Promise<void>
+  uploadNewStorageObject: () => Promise<void>
+  insertDocumentRecord: () => Promise<void>
+}
+
+export async function persistDownloadedSecDocument(
+  actions: SecDocumentPersistenceActions,
+): Promise<void> {
+  if (await actions.storageObjectExists()) {
+    await actions.verifyExistingStorageObject()
+  } else {
+    await actions.uploadNewStorageObject()
+  }
+
+  await actions.insertDocumentRecord()
+}
+
 function contentTypeFor(filename: string): string {
   const lower = filename.toLowerCase()
   if (lower.endsWith('.htm') || lower.endsWith('.html')) return MimeType.html
@@ -35,6 +54,10 @@ function contentTypeFor(filename: string): string {
 function storagePathFor(filing: SecFilingRecord, filename: string): string {
   const safeDocumentName = filename.split('/').at(-1) ?? StorageConfig.fallbackDocumentName
   return `${filing.ticker}/${filing.accessionNumber}/${safeDocumentName}`
+}
+
+function calculateSha256(content: Uint8Array): string {
+  return createHash('sha256').update(content).digest('hex')
 }
 
 function normalizeSecDocumentUrl(href: string, indexUrl: string): string {
@@ -137,32 +160,55 @@ export async function downloadAndStoreDocument(
     throw new Error(`${candidate.filename} exceeds the 50 MB document limit`)
   }
 
-  const contentSha256 = createHash('sha256').update(body).digest('hex')
+  const contentSha256 = calculateSha256(body)
   const storagePath = storagePathFor(filing, candidate.filename)
-  const { error: uploadError } = await client.storage
-    .from(StorageConfig.secDocumentsBucket)
-    .upload(storagePath, body, {
-      contentType: response.headers.get('content-type') ?? contentTypeFor(candidate.filename),
-      upsert: true,
-    })
+  const storageBucket = client.storage.from(StorageConfig.secDocumentsBucket)
 
-  if (uploadError) {
-    throw new Error(`Could not store ${candidate.filename}: ${uploadError.message}`)
-  }
+  await persistDownloadedSecDocument({
+    storageObjectExists: async () => {
+      const { data: exists, error } = await storageBucket.exists(storagePath)
+      if (error) {
+        throw new Error(`Could not check stored ${candidate.filename}: ${error.message}`)
+      }
+      return exists
+    },
+    verifyExistingStorageObject: async () => {
+      const { data: storedDocument, error } = await storageBucket.download(storagePath)
+      if (error) {
+        throw new Error(`Could not verify stored ${candidate.filename}: ${error.message}`)
+      }
 
-  const { error: insertError } = await client.from(DatabaseTable.documents).insert({
-    earnings_event_id: filing.earningsEventId,
-    filing_id: filing.id,
-    accession_number: filing.accessionNumber,
-    document_type: candidate.documentType,
-    source_url: candidate.sourceUrl,
-    storage_path: storagePath,
-    published_at: filing.acceptedAt ?? filing.firstSeenAt,
-    first_seen_at: filing.firstSeenAt,
-    content_sha256: contentSha256,
+      const storedBody = new Uint8Array(await storedDocument.arrayBuffer())
+      if (calculateSha256(storedBody) !== contentSha256) {
+        throw new Error(`Stored ${candidate.filename} does not match the SEC document`)
+      }
+    },
+    uploadNewStorageObject: async () => {
+      const { error } = await storageBucket.upload(storagePath, body, {
+        contentType: response.headers.get('content-type') ?? contentTypeFor(candidate.filename),
+        upsert: false,
+      })
+      if (error) {
+        throw new Error(`Could not store ${candidate.filename}: ${error.message}`)
+      }
+    },
+    insertDocumentRecord: async () => {
+      const { error } = await client.from(DatabaseTable.documents).insert({
+        earnings_event_id: filing.earningsEventId,
+        filing_id: filing.id,
+        accession_number: filing.accessionNumber,
+        document_type: candidate.documentType,
+        source_url: candidate.sourceUrl,
+        storage_path: storagePath,
+        published_at: filing.acceptedAt ?? filing.firstSeenAt,
+        first_seen_at: filing.firstSeenAt,
+        content_sha256: contentSha256,
+        content_size_bytes: body.byteLength,
+      })
+
+      if (error) {
+        throw new Error(`Could not record ${candidate.filename}: ${error.message}`)
+      }
+    },
   })
-
-  if (insertError) {
-    throw new Error(`Could not record ${candidate.filename}: ${insertError.message}`)
-  }
 }

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseEarningsReleaseExhibits } from './documents.js'
+import {
+  parseEarningsReleaseExhibits,
+  persistDownloadedSecDocument,
+  type SecDocumentPersistenceActions,
+} from './documents.js'
 
 test('extracts only Exhibit 99.1 documents from an SEC filing index', () => {
   const html = `
@@ -21,4 +25,61 @@ test('extracts only Exhibit 99.1 documents from an SEC filing index', () => {
   assert.equal(exhibits[0]?.filename, 'release.htm')
   assert.equal(exhibits[0]?.sourceUrl, 'https://www.sec.gov/Archives/edgar/data/1/0001/release.htm')
   assert.equal(exhibits[0]?.documentType, 'sec-exhibit-99.1')
+})
+
+test('reuses a verified storage object when retrying a failed database insert', async () => {
+  const completedSteps: string[] = []
+  let storageObjectExists = false
+  let documentInsertAttempts = 0
+
+  const actions: SecDocumentPersistenceActions = {
+    storageObjectExists: async () => {
+      completedSteps.push('check storage object')
+      return storageObjectExists
+    },
+    verifyExistingStorageObject: async () => {
+      completedSteps.push('verify storage object')
+    },
+    uploadNewStorageObject: async () => {
+      completedSteps.push('upload storage object')
+      storageObjectExists = true
+    },
+    insertDocumentRecord: async () => {
+      completedSteps.push('insert document record')
+      documentInsertAttempts += 1
+      if (documentInsertAttempts === 1) throw new Error('database insert failed')
+    },
+  }
+
+  await assert.rejects(persistDownloadedSecDocument(actions), /database insert failed/)
+  await persistDownloadedSecDocument(actions)
+
+  assert.deepEqual(completedSteps, [
+    'check storage object',
+    'upload storage object',
+    'insert document record',
+    'check storage object',
+    'verify storage object',
+    'insert document record',
+  ])
+})
+
+test('does not insert a document record when storage verification fails', async () => {
+  let documentRecordInserted = false
+
+  await assert.rejects(
+    persistDownloadedSecDocument({
+      storageObjectExists: async () => true,
+      verifyExistingStorageObject: async () => {
+        throw new Error('stored content does not match')
+      },
+      uploadNewStorageObject: async () => {},
+      insertDocumentRecord: async () => {
+        documentRecordInserted = true
+      },
+    }),
+    /stored content does not match/,
+  )
+
+  assert.equal(documentRecordInserted, false)
 })

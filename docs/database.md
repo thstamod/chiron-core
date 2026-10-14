@@ -69,6 +69,8 @@ Important fields:
 - `published_at`: the safest known time when the source became public.
 - `first_seen_at`: when Chiron discovered the source.
 - `content_sha256`: a fingerprint used to prove whether the file content changed.
+- `content_size_bytes`: the exact size of the archived source file. Older rows can remain empty until
+  they are backfilled or downloaded again.
 - `filing_id`: the related `sec_filings` row.
 - `earnings_event_id`: the related earnings event, once one has been created.
 

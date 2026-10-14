@@ -184,11 +184,14 @@ Report names in plain language:
 flowchart LR
     A[downloadAndStoreDocument] --> B[Fetch original bytes from SEC]
     B --> C[Check file size and calculate SHA-256]
-    C --> D[Upload file to private sec-documents bucket]
-    D --> E[Insert documents row: URL, path, timestamps, hash]
+    C --> D{Storage path already exists?}
+    D -->|No| E[Upload without allowing overwrite]
+    D -->|Yes| F[Download and verify its fingerprint]
+    E --> G[Insert documents row: URL, path, timestamps, hash, byte size]
+    F --> G
 ```
 
-**SHA-256** is a fingerprint calculated from file contents. It helps identify which exact bytes were stored. Storage holds the file; the `documents` table holds its catalog record. Upload and database insert are separate operations, not one database transaction.
+**SHA-256** is a fingerprint calculated from file contents. It helps identify which exact bytes were stored. Storage holds the file; the `documents` table holds its catalog record. Upload and database insert are separate operations, so a retry verifies an existing Storage object before recreating a missing database record.
 
 Other helpers in `documents.ts`: `contentTypeFor()` identifies the fallback file format, `storagePathFor()` chooses the bucket path, and `normalizeSecDocumentUrl()` converts an attachment link to its document URL. Cheerio reads the SEC attachment-list HTML so the parser can find Exhibit 99.1 rows.
 

@@ -53,22 +53,20 @@ database processing, not the number or size of SEC responses.
 
 ### Record document sizes and storage usage
 
-**Status:** Agreed, not implemented
+**Status:** Core byte-size recording implemented on 2026-10-14; reporting improvements remain
 
 #### Current behavior
 
-The worker rejects a document larger than the 50 MB safety limit, but it does not store the size of
-accepted documents. This means storage usage cannot be inspected from the database or summarized by
-company, document type, or year.
+The worker rejects a document larger than the 50 MB safety limit and records the exact downloaded
+byte count for every new document. Existing document rows can remain empty until they are
+backfilled or downloaded again.
 
 #### Proposed behavior
 
-1. Add a byte-size field to the `documents` table.
-2. Record the downloaded byte count when the document metadata is inserted.
-3. Include the document size in relevant worker logs.
-4. Report unusually large and rejected documents so the 50 MB limit can be reviewed using real
+1. Include document sizes in relevant worker summaries.
+2. Report unusually large and rejected documents so the 50 MB limit can be reviewed using real
    examples.
-5. Add a database query or internal dashboard summary for total archived storage.
+3. Add a database query or internal dashboard summary for total archived storage.
 
 #### What this improves
 
@@ -84,7 +82,7 @@ must remain available for auditing even if storage usage grows.
 
 #### Acceptance checks
 
-- The database records the byte size of every newly archived document.
+- The database records the byte size of every newly archived document. Implemented.
 - Storage usage can be summarized by company, document type, and year.
 - A rejected oversized document is visible in the worker job results or logs.
 - Existing document rows can remain without a size until they are backfilled or downloaded again.
@@ -263,7 +261,7 @@ later without losing data.
 
 ### Strengthen document synchronization and extraction reuse
 
-**Status:** Agreed, not implemented
+**Status:** Partial — recoverable Storage/database persistence implemented on 2026-10-14
 
 #### Current behavior
 
@@ -272,29 +270,21 @@ stores them in the private `sec-documents` bucket. The `documents` table stores 
 including the storage path and SHA-256 content fingerprint. Structured JSON extraction will be
 stored separately as derived data.
 
-The worker already loads the source URLs stored in the `documents` table and skips a download when
-the same URL has already been archived. Keeping the original document is intentional: it is the
-evidence needed to verify an extraction, correct mistakes, and reproduce what was known when a
-prediction was created.
-
-The remaining weakness is failure recovery. For example, a Storage upload could succeed and the
-following database insert could fail. The existing URL check cannot see that unrecorded Storage
-object on the next run.
+The worker loads the source URLs stored in the `documents` table and skips a download when the same
+URL has already been archived. If a Storage upload succeeds but the following database insert
+fails, the next run finds the deterministic Storage path, downloads the existing private object,
+verifies its SHA-256 fingerprint, and retries the missing database insert. New uploads disable
+overwriting so archived evidence cannot be silently replaced.
 
 #### Proposed behavior
 
-1. Keep the existing source-URL check as the normal fast path for skipping archived documents.
-2. Make document persistence safely repeatable when only the Storage upload or database insert
-   succeeded during an earlier attempt.
-3. Verify an existing Storage object before replacing it, so archived source evidence is not
-   silently overwritten.
-4. Store only documents that are relevant to an earnings event, rather than every attachment in a
+1. Store only documents that are relevant to an earnings event, rather than every attachment in a
    filing.
-5. Run structured JSON extraction only when no extraction exists for the same document fingerprint,
+2. Run structured JSON extraction only when no extraction exists for the same document fingerprint,
    prompt version, and model version.
-6. Re-run extraction only as an explicit versioned operation when the extraction rules, prompt, or
+3. Re-run extraction only as an explicit versioned operation when the extraction rules, prompt, or
    model change.
-7. Consider compression or a retention policy only if measured storage usage shows that one is
+4. Consider compression or a retention policy only if measured storage usage shows that one is
    necessary. Original source documents used by a prediction must remain available for auditing.
 
 #### What this improves
@@ -314,7 +304,8 @@ that storage is a problem before measurements show that it is.
 
 - The existing source-URL check continues to skip documents already recorded in the database.
 - A simulated failure between Storage upload and database insert is repaired by the next run.
-- An existing archived object with different content is not silently overwritten.
+  Implemented.
+- An existing archived object with different content is not silently overwritten. Implemented.
 - An existing document can be extracted without requesting it from the SEC again.
 - The same document and extraction version produces at most one extraction record.
 - A new prompt or model version creates a new extraction without overwriting the previous result.
