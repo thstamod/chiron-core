@@ -9,7 +9,7 @@ file.
 
 ```text
 companies
-  ├── sec_filings ── documents
+  ├── sec_filings ── documents ── document_text_versions
   └── earnings_events
         ├── documents
         ├── financial_metrics
@@ -74,6 +74,25 @@ Important fields:
   they are backfilled or downloaded again.
 - `filing_id`: the related `sec_filings` row.
 - `earnings_event_id`: the related earnings event, once one has been created.
+
+### `document_text_versions`
+
+An index of readable text files derived from the archived SEC documents. The `.txt` content is
+kept in private Supabase Storage; this table records how it was produced.
+
+Important fields:
+
+- `document_id`: the exact original document used as input.
+- `extraction_version`: the version of the deterministic HTML-to-text rules.
+- `source_content_sha256`: the fingerprint of the original file at extraction time.
+- `storage_path`: the private location of the readable `.txt` artifact.
+- `content_sha256`: the fingerprint of the derived text.
+- `content_size_bytes`, `character_count`, and `line_count`: measurements used to inspect output
+  size and later control LLM inputs.
+
+A changed extraction rule creates a new row instead of replacing an older result. This is separate
+from `extraction_runs`: a text version is deterministic document preparation, while an extraction
+run will contain the later structured JSON produced by an LLM.
 
 ### `earnings_events`
 
@@ -181,9 +200,10 @@ Important fields:
 
 ## Private storage
 
-The `sec-documents` storage bucket contains original SEC files. It is private, so files are not
-available through a public URL. Only trusted server-side code using the Supabase secret key can
-write or retrieve them.
+The `sec-documents` storage bucket contains original SEC files and versioned readable-text artifacts.
+Derived text is stored below the `derived-text/` folder so it cannot be confused with original
+evidence. The bucket is private, so files are not available through a public URL. Only trusted
+server-side code using the Supabase secret key can write or retrieve them.
 
 The secret key must never be placed in the Vue application or committed to Git.
 

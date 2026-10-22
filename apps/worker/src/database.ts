@@ -5,7 +5,7 @@ import type {
   SecFilingRecord,
   TrackedCompany,
 } from '@chiron/shared'
-import type { WorkerConfig } from './config.js'
+import type { DatabaseConfig } from './config.js'
 import {
   DatabaseTable,
   type FinishedJobStatus,
@@ -47,6 +47,23 @@ interface FilingRow {
   companies: FilingCompanyRow | FilingCompanyRow[]
 }
 
+interface DocumentTextSourceRow {
+  id: string
+  storage_path: string
+  content_sha256: string
+}
+
+interface DocumentTextVersionRow {
+  document_id: string
+  source_content_sha256: string
+}
+
+export interface DocumentTextSource {
+  id: string
+  storagePath: string
+  contentSha256: string
+}
+
 function versionFromJson(value: unknown): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const version = (value as { ruleVersion?: unknown }).ruleVersion
@@ -70,7 +87,7 @@ function parseClassification(value: unknown): SecEarningsClassification | null {
   return candidate as SecEarningsClassification
 }
 
-export function createDatabaseClient(config: WorkerConfig): SupabaseClient {
+export function createDatabaseClient(config: DatabaseConfig): SupabaseClient {
   return createClient(config.supabaseUrl, config.supabaseSecretKey, {
     auth: {
       autoRefreshToken: false,
@@ -239,6 +256,57 @@ export async function getStoredDocumentSourceUrls(
   )
 
   return new Set(data.map((row) => row.source_url))
+}
+
+export async function getPendingDocumentsForTextExtraction(
+  client: SupabaseClient,
+  extractionVersion: string,
+): Promise<DocumentTextSource[]> {
+  const [documents, existingTextVersions] = await Promise.all([
+    fetchAllPages<DocumentTextSourceRow>(
+      async (from, to) => {
+        const { data, error } = await client
+          .from(DatabaseTable.documents)
+          .select('id,storage_path,content_sha256')
+          .order('id')
+          .range(from, to)
+
+        return { data, error }
+      },
+      'Could not load documents for text extraction',
+    ),
+    fetchAllPages<DocumentTextVersionRow>(
+      async (from, to) => {
+        const { data, error } = await client
+          .from(DatabaseTable.documentTextVersions)
+          .select('document_id,source_content_sha256')
+          .eq('extraction_version', extractionVersion)
+          .order('document_id')
+          .order('source_content_sha256')
+          .range(from, to)
+
+        return { data, error }
+      },
+      'Could not load existing document text versions',
+    ),
+  ])
+
+  const completedExtractionKeys = new Set(
+    existingTextVersions.map(
+      (version) => `${version.document_id}:${version.source_content_sha256}`,
+    ),
+  )
+
+  return documents
+    .filter((document) => {
+      const extractionKey = `${document.id}:${document.content_sha256}`
+      return !completedExtractionKeys.has(extractionKey)
+    })
+    .map((document) => ({
+      id: document.id,
+      storagePath: document.storage_path,
+      contentSha256: document.content_sha256,
+    }))
 }
 
 export async function updateExhibitDiscovery(

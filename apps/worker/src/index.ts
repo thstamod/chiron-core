@@ -1,7 +1,13 @@
 import './load-env.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkerHealth } from '@chiron/shared'
-import { loadConfig, type WorkerConfig } from './config.js'
+import {
+  loadFilingSyncConfig,
+  loadDatabaseConfig,
+  loadSecRequestConfig,
+  type FilingSyncConfig,
+  type SecRequestConfig,
+} from './config.js'
 import {
   EarningsCategory,
   JobName,
@@ -13,6 +19,7 @@ import {
   checkDatabase,
   createDatabaseClient,
   getActiveCompanies,
+  getPendingDocumentsForTextExtraction,
   getFilingsForDocumentSync,
   getStoredDocumentSourceUrls,
   saveFilingCandidates,
@@ -25,6 +32,10 @@ import {
   fetchEarningsReleaseExhibits,
   primaryDocumentCandidate,
 } from './documents.js'
+import {
+  documentTextExtractionVersion,
+  extractAndStoreDocumentText,
+} from './document-text.js'
 import { buildEarningsEventGroups, saveEarningsEventGroups } from './events.js'
 import { runTrackedJob } from './jobs.js'
 import {
@@ -34,7 +45,7 @@ import {
 } from './sec.js'
 
 async function runHealthCheck(): Promise<void> {
-  const config = loadConfig()
+  const config = loadDatabaseConfig()
   const client = createDatabaseClient(config)
   const companyCount = await checkDatabase(client)
   const health: WorkerHealth & { companyCount: number } = {
@@ -50,7 +61,7 @@ async function runHealthCheck(): Promise<void> {
 
 async function syncFilings(
   client: SupabaseClient,
-  config: WorkerConfig,
+  config: FilingSyncConfig,
 ): Promise<Record<string, unknown>> {
   const companies = await getActiveCompanies(client)
   const cutoff = new Date(
@@ -75,7 +86,7 @@ async function syncFilings(
 
 async function syncDocuments(
   client: SupabaseClient,
-  config: WorkerConfig,
+  config: SecRequestConfig,
 ): Promise<Record<string, unknown>> {
   const filings = await getFilingsForDocumentSync(client)
   const storedSourceUrls = await getStoredDocumentSourceUrls(client)
@@ -153,6 +164,40 @@ async function syncEvents(client: SupabaseClient): Promise<Record<string, unknow
   return { eventGroups: groups.length, ...result }
 }
 
+async function extractDocumentText(client: SupabaseClient): Promise<Record<string, unknown>> {
+  const pendingDocuments = await getPendingDocumentsForTextExtraction(
+    client,
+    documentTextExtractionVersion,
+  )
+  let extractedDocuments = 0
+  let unsupportedDocuments = 0
+
+  console.log(
+    `Checking ${pendingDocuments.length} documents with ${documentTextExtractionVersion}`,
+  )
+
+  for (const document of pendingDocuments) {
+    const wasExtracted = await extractAndStoreDocumentText(client, document)
+    if (wasExtracted) {
+      extractedDocuments += 1
+    } else {
+      unsupportedDocuments += 1
+    }
+  }
+
+  console.log(
+    `Text extraction complete: ${extractedDocuments} extracted, `
+    + `${unsupportedDocuments} unsupported documents skipped`,
+  )
+
+  return {
+    pendingDocuments: pendingDocuments.length,
+    extractedDocuments,
+    unsupportedDocuments,
+    extractionVersion: documentTextExtractionVersion,
+  }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
 
@@ -161,18 +206,37 @@ async function main(): Promise<void> {
     return
   }
 
-  const config = loadConfig()
-  const client = createDatabaseClient(config)
+  const databaseConfig = loadDatabaseConfig()
+  const client = createDatabaseClient(databaseConfig)
 
   switch (command) {
-    case WorkerCommand.syncFilings:
-      await runTrackedJob(client, JobName.filingsSync, () => syncFilings(client, config))
+    case WorkerCommand.syncFilings: {
+      const filingSyncConfig = loadFilingSyncConfig()
+      await runTrackedJob(
+        client,
+        JobName.filingsSync,
+        () => syncFilings(client, filingSyncConfig),
+      )
       break
-    case WorkerCommand.syncDocuments:
-      await runTrackedJob(client, JobName.documentsSync, () => syncDocuments(client, config))
+    }
+    case WorkerCommand.syncDocuments: {
+      const secRequestConfig = loadSecRequestConfig()
+      await runTrackedJob(
+        client,
+        JobName.documentsSync,
+        () => syncDocuments(client, secRequestConfig),
+      )
       break
+    }
     case WorkerCommand.syncEvents:
       await runTrackedJob(client, JobName.eventsSync, () => syncEvents(client))
+      break
+    case WorkerCommand.extractDocumentText:
+      await runTrackedJob(
+        client,
+        JobName.documentTextExtraction,
+        () => extractDocumentText(client),
+      )
       break
     default:
       throw new Error(`Unknown worker command: ${command}`)

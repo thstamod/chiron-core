@@ -12,7 +12,8 @@ An **earnings announcement** is a company's update about its business results. C
 flowchart TD
     A[Company publishes its results] --> B[Collect original reports]
     B --> C[Organize related documents]
-    C -. Planned .-> D[Extract numbers and management statements]
+    C --> T[Create versioned readable text]
+    T -. Planned .-> D[Extract numbers and management statements]
     D -. Planned .-> E[Save a research score and its evidence]
     E -. Planned .-> F[Observe prices after 1, 5 and 20 trading days]
     F -. Planned .-> G[Compare with the market and sector]
@@ -31,7 +32,7 @@ flowchart TD
     L[Your laptop: manual worker command] --> W
     SEC[SEC public reports] --> W
     W --> DB[Supabase PostgreSQL: structured records]
-    W --> ST[Supabase private Storage: original files]
+    W --> ST[Supabase private Storage: original files and readable text]
     DEV[Your laptop: pnpm dev] --> V[Vue dashboard in browser]
     DEMO[demo-data.ts: example records] --> V
 ```
@@ -64,10 +65,13 @@ flowchart TD
 | `.github/workflows/sec-filings.yml` | Asks GitHub to run the collection jobs on a schedule or manually. |
 | `apps/worker/src/index.ts` | Chooses and coordinates a worker command. |
 | `apps/worker/src/load-env.ts` | Loads the local `.env` file when present. |
-| `apps/worker/src/config.ts` | Checks required configuration and returns it as an object. |
+| `apps/worker/src/config.ts` | Loads database, SEC-request, and filing-sync configuration separately. |
 | `apps/worker/src/sec.ts` | Retrieves SEC filing information and classifies report types. |
 | `apps/worker/src/database.ts` | Reads and writes Supabase database rows. |
 | `apps/worker/src/documents.ts` | Finds earnings attachments, downloads files and stores them. |
+| `apps/worker/src/document-text.ts` | Converts archived SEC HTML into versioned readable text. |
+| `apps/worker/src/content-hash.ts` | Creates SHA-256 fingerprints for original and derived files. |
+| `apps/worker/src/storage.ts` | Persists immutable files and safely handles concurrent uploads. |
 | `apps/worker/src/events.ts` | Groups related filings into earnings events. |
 | `apps/worker/src/jobs.ts` | Records job start, success or failure. |
 | `apps/worker/src/pagination.ts` | Loads database records in batches of 500. |
@@ -98,9 +102,11 @@ flowchart TD
     D -->|sync-filings| F[syncFilings]
     D -->|sync-documents| DOC[syncDocuments]
     D -->|sync-events| E[syncEvents]
+    D -->|extract-document-text| T[extractDocumentText]
     F --> J[jobs.ts: runTrackedJob]
     DOC --> J
     E --> J
+    T --> J
     J --> START[Record running in job_runs]
     START --> EXEC[Execute selected job]
     EXEC --> OK[Record succeeded and counts]
@@ -109,7 +115,8 @@ flowchart TD
 
 For example, `pnpm worker:sync-filings` at the repository root invokes the worker's `sync:filings` script, which runs `tsx src/index.ts sync-filings`. `tsx` executes TypeScript; `main()` reads `sync-filings` from the command-line arguments.
 
-The GitHub workflow runs filings, documents, then events. A failed step stops the later steps. Health checks are not recorded through `runTrackedJob()`.
+The GitHub workflow runs filings, documents, events, then readable-text extraction. A failed step
+stops the later steps. Health checks are not recorded through `runTrackedJob()`.
 
 The cron line requests hourly runs on weekdays in UTC. Actual execution can be delayed or skipped by GitHub. This is collection scheduling, not a precise prediction clock.
 
@@ -227,7 +234,31 @@ The 24-hour forward-only window matched all 40 earnings releases in the initial 
 
 `detected_at` means when Chiron created the event. It is preserved when an existing event changes. SEC publication times remain on source records. Grouping metadata is not an immutable prediction snapshot.
 
-## 8. How the database records connect
+## 8. Job four: create versioned readable text
+
+```mermaid
+flowchart TD
+    A[index.ts: extractDocumentText] --> B[Load documents missing the current text version]
+    B --> C[Download archived original from private Storage]
+    C --> D{Original fingerprint matches database?}
+    D -->|No| FAIL[Fail visibly]
+    D -->|Yes| E[Convert HTML into readable text]
+    E --> F[Calculate readable-text fingerprint]
+    F --> G[Store immutable text under derived-text]
+    G --> H[Insert and verify document_text_versions row]
+```
+
+The original SEC HTML is not created by Chiron and is never changed. Chiron creates the readable
+text as a separate derived artifact. A material converter change uses a new version, allowing older
+outputs to remain reproducible. The future LLM step will use this readable text to produce
+structured JSON; readable text and LLM JSON are separate stages.
+
+The job processes documents sequentially to keep memory and service usage low. A partial run is
+recoverable because completed document/version/fingerprint combinations are skipped next time.
+Storage and database rows are both verified when concurrent workers reach the same deterministic
+artifact.
+
+## 9. How the database records connect
 
 ```mermaid
 erDiagram
@@ -236,6 +267,7 @@ erDiagram
     earnings_events o|--o{ sec_filings : groups
     sec_filings o|--o{ documents : contains
     earnings_events o|--o{ documents : gathers
+    documents ||--o{ document_text_versions : derives
     earnings_events o|--o{ earnings_events : previous_event
 ```
 
@@ -246,6 +278,7 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 | `companies` | Watchlist and company identifiers. |
 | `sec_filings` | Filing catalog and classification/discovery results. |
 | `documents` | File catalog, evidence timestamps and content fingerprints. |
+| `document_text_versions` | Versioned readable-text artifacts derived from original documents. |
 | `earnings_events` | Related filings grouped by company and reported period. |
 | `job_runs` | Operational history of worker jobs. |
 | `financial_metrics` | Created for future extraction of numbers such as revenue. |
@@ -255,16 +288,18 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 
 Database migrations are applied separately. The GitHub collection workflow does not apply SQL migrations.
 
-## 9. Configuration and database helper functions
+## 10. Configuration and database helper functions
 
 ```mermaid
 flowchart LR
     LOCAL[Local .env] --> ENV[load-env.ts]
     ENV --> PROCESS[process.env]
     GH[GitHub Secrets] --> PROCESS
-    PROCESS --> CONFIG[config.ts: loadConfig]
-    CONFIG --> CLIENT[database.ts: createDatabaseClient]
+    PROCESS --> DATABASE_CONFIG[config.ts: loadDatabaseConfig]
+    PROCESS --> SEC_CONFIG[config.ts: loadSecRequestConfig or loadFilingSyncConfig]
+    DATABASE_CONFIG --> CLIENT[database.ts: createDatabaseClient]
     CLIENT --> JOBS[Worker jobs]
+    SEC_CONFIG --> SEC_JOBS[SEC request jobs only]
 ```
 
 The local `.env` is ignored by Git. GitHub supplies environment variables separately. The Supabase secret key is used by the worker and must never enter Vue browser code.
@@ -277,6 +312,7 @@ The local `.env` is ignored by Git. GitHub supplies environment variables separa
 | `saveFilingCandidates()` | Insert filings while ignoring existing accession numbers. |
 | `getFilingsForDocumentSync()` | Read filing records with company information, using pagination. Also used by event sync. |
 | `getStoredDocumentSourceUrls()` | Read recorded document URLs, using pagination. |
+| `getPendingDocumentsForTextExtraction()` | Read documents missing the requested text-extraction version. |
 | `updateFilingClassification()` | Save the versioned decision about relevance to earnings. |
 | `updateExhibitDiscovery()` | Save which attachments were found and when the index was checked. |
 | `createJobRun()` / `finishJobRun()` | Record the lifecycle and results of a job. |
@@ -284,7 +320,7 @@ The local `.env` is ignored by Git. GitHub supplies environment variables separa
 
 `pagination.ts: fetchAllPages()` requests rows in batches of 500, collecting them until the last batch. Callers provide stable ordering. `jobs.ts: runTrackedJob()` wraps a job with database history and propagates failures to the command-line process.
 
-## 10. Vue: the part familiar to a frontend engineer
+## 11. Vue: the part familiar to a frontend engineer
 
 ```mermaid
 flowchart TD
@@ -301,7 +337,7 @@ flowchart TD
 
 `scoreLabel()` formats positive numbers with a `+`. The example records supply scores, guidance and results. The demo's displayed processing stages illustrate the intended product; they are not evidence that extraction or prediction jobs are running. Some navigation links and buttons are placeholders.
 
-## 11. The future evaluation pipeline
+## 12. The future evaluation pipeline
 
 Everything below is planned; these jobs do not exist yet.
 
@@ -321,13 +357,14 @@ The **analysis cutoff** is the latest time from which information is allowed int
 
 For example, an analysis completed after market close cannot claim the earlier closing price as an available entry. Historical grouping must also filter each source by its availability time; a later report or amendment cannot be used in an earlier prediction.
 
-## 12. Suggested reading path
+## 13. Suggested reading path
 
 1. Start with sections 1–3 to understand the purpose and locations.
 2. Read `index.ts: main()` alongside section 4.
 3. Follow `syncFilings()` and `sec.ts` alongside section 5.
 4. Follow `syncDocuments()` and `documents.ts` alongside section 6.
 5. Follow `syncEvents()` and `events.ts` alongside section 7.
-6. Use sections 8–9 while reading migrations and database operations.
-7. Read the Vue files alongside section 10.
-8. Keep section 11 separate from today's implemented behavior.
+6. Follow `extractDocumentText()` and `document-text.ts` alongside section 8.
+7. Use sections 9–10 while reading migrations and database operations.
+8. Read the Vue files alongside section 11.
+9. Keep section 12 separate from today's implemented behavior.

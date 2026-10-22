@@ -53,4 +53,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+
+      - name: Extract readable text from SEC documents
+        run: pnpm --filter @chiron/worker extract:document-text
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

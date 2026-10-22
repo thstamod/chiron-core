@@ -12,6 +12,7 @@
     "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",
     "worker:sync-documents": "pnpm --filter @chiron/worker sync:documents",
     "worker:sync-events": "pnpm --filter @chiron/worker sync:events",
+    "worker:extract-document-text": "pnpm --filter @chiron/worker extract:document-text",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

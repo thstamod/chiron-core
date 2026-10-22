@@ -17,8 +17,8 @@ Phase 1 provides:
 
 SEC metadata ingestion is active. The worker can classify earnings-related filings with a
 versioned transparent rule, preserve primary documents and Exhibit 99.1 earnings releases,
-and group related filings into earnings events.
-LLM extraction, stock prices, and predictions are not active yet.
+group related filings into earnings events, and create versioned readable-text copies for later
+extraction. LLM extraction, stock prices, and predictions are not active yet.
 
 ## Requirements
 
@@ -62,6 +62,7 @@ pnpm worker:health
 pnpm worker:sync-filings
 pnpm worker:sync-documents
 pnpm worker:sync-events
+pnpm worker:extract-document-text
 ```
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
@@ -69,9 +70,15 @@ also includes `8-K` filings containing SEC item `2.02`, which means results of o
 and financial condition. Other `8-K` filings are retained as metadata but are not downloaded.
 
 For an earnings-related `8-K`, the worker also checks the SEC filing index for Exhibit `99.1`,
-which commonly contains the detailed earnings press release. Event grouping uses a `10-Q` or
-`10-K` reported period as its anchor and attaches the nearest item `2.02` filing within seven
-days. Fiscal year and quarter remain empty until structured SEC data can establish them.
+which commonly contains the detailed earnings press release. The `8-K` creates a provisional
+event. A single `10-Q` or `10-K` published afterward within 24 hours confirms that event; an
+ambiguous match is left for review. Fiscal year and quarter remain empty until structured SEC data
+can establish them.
+
+The text-extraction command reads the archived HTML from private Storage and creates a separate
+readable `.txt` artifact. The original file is never changed. Its database row records both the
+original file fingerprint and the extraction-rule version so the exact future LLM input can be
+reproduced.
 
 Every scheduled command records its start time, completion status, and result counts in
 `job_runs`, including runs that correctly find no new filings.

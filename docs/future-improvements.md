@@ -402,6 +402,52 @@ that storage is a problem before measurements show that it is.
 - A new prompt or model version creates a new extraction without overwriting the previous result.
 - Every prediction still points to the exact original documents and extraction versions it used.
 
+### Detect SEC HTML changes and degraded text extraction
+
+**Status:** Agreed, not implemented
+
+**Priority:** Next iteration — required before relying on automated extraction at larger scale
+
+#### Current behavior
+
+The current converter uses standard HTML headings, paragraphs, tables, rows, and cells rather
+than company-specific CSS classes. It removes scripts and explicitly hidden content, converts
+tables into readable rows, and rejects a result only when no readable text was produced. It was
+validated against the current archived documents, including META's `8-K`, Exhibit `99.1`, and
+`10-Q`.
+
+#### Proposed behavior
+
+1. Compare the readable-text size with the archived source size and flag unusual changes.
+2. Record whether basic document markers, headings, and financial table content survived.
+3. Flag unexpectedly short output, extremely long lines, or abnormal amounts of repeated text.
+4. Keep representative fixtures for `8-K`, Exhibit `99.1`, `10-Q`, and `10-K` documents from
+   different companies.
+5. Run those fixtures automatically whenever the converter changes.
+6. Record extraction warnings and allow the affected document to be reviewed instead of silently
+   using questionable text.
+7. Create a new extraction-rule version when a material parser change affects output.
+
+#### What this improves
+
+- Detects when an SEC or company HTML structure change produces incomplete or noisy text.
+- Prevents a technically successful conversion from being mistaken for a reliable extraction.
+- Makes expansion beyond the initial large-company sample safer.
+
+#### What this does not improve
+
+Automated checks cannot prove that every meaningful sentence or table relationship was preserved.
+Representative documents and flagged results still require human review. A document format such as
+PDF would also require a separate versioned converter.
+
+#### Acceptance checks
+
+- Empty and unusually short outputs are rejected or marked for review.
+- A material size-ratio change is visible in job results.
+- Representative document fixtures retain expected headings, sentences, and table rows.
+- Extraction warnings are stored with the document text version.
+- A new converter version does not overwrite earlier text artifacts.
+
 ### Record material company news as evaluation context
 
 **Status:** Agreed, not implemented

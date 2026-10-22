@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { load } from 'cheerio'
 import type { SecFilingRecord } from '@chiron/shared'
@@ -14,6 +13,11 @@ import {
 } from './constants.js'
 import { buildSecPrimaryDocumentUrl } from './sec.js'
 import { fetchSecResource } from './sec-request.js'
+import { calculateContentSha256 } from './content-hash.js'
+import {
+  persistImmutableStorageObject,
+  type ImmutableStorageObjectActions,
+} from './storage.js'
 
 export const exhibitDiscoveryRuleVersion = RuleVersion.exhibitDiscovery
 
@@ -24,21 +28,14 @@ export interface SecDocumentCandidate {
   description: string | null
 }
 
-export interface SecDocumentPersistenceActions {
-  storageObjectExists: () => Promise<boolean>
-  verifyExistingStorageObject: () => Promise<void>
-  uploadNewStorageObject: () => Promise<void>
+export interface SecDocumentPersistenceActions extends ImmutableStorageObjectActions {
   insertDocumentRecord: () => Promise<void>
 }
 
 export async function persistDownloadedSecDocument(
   actions: SecDocumentPersistenceActions,
 ): Promise<void> {
-  if (await actions.storageObjectExists()) {
-    await actions.verifyExistingStorageObject()
-  } else {
-    await actions.uploadNewStorageObject()
-  }
+  await persistImmutableStorageObject(actions)
 
   await actions.insertDocumentRecord()
 }
@@ -65,10 +62,6 @@ export function storageListingContainsDocument(
   documentName: string,
 ): boolean {
   return storedObjects.some((storedObject) => storedObject.name === documentName)
-}
-
-function calculateSha256(content: Uint8Array): string {
-  return createHash('sha256').update(content).digest('hex')
 }
 
 function normalizeSecDocumentUrl(href: string, indexUrl: string): string {
@@ -171,7 +164,7 @@ export async function downloadAndStoreDocument(
     throw new Error(`${candidate.filename} exceeds the 50 MB document limit`)
   }
 
-  const contentSha256 = calculateSha256(body)
+  const contentSha256 = calculateContentSha256(body)
   const storagePath = storagePathFor(filing, candidate.filename)
   const storageFolder = storageFolderFor(filing)
   const storageDocumentName = storagePath.split('/').at(-1) ?? StorageConfig.fallbackDocumentName
@@ -195,7 +188,7 @@ export async function downloadAndStoreDocument(
       }
 
       const storedBody = new Uint8Array(await storedDocument.arrayBuffer())
-      if (calculateSha256(storedBody) !== contentSha256) {
+      if (calculateContentSha256(storedBody) !== contentSha256) {
         throw new Error(`Stored ${candidate.filename} does not match the SEC document`)
       }
     },

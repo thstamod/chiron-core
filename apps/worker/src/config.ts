@@ -1,24 +1,48 @@
 import { defaultSecLookbackDays, EnvironmentVariable } from './constants.js'
 
-const requiredKeys = [
+const requiredDatabaseKeys = [
   EnvironmentVariable.supabaseUrl,
   EnvironmentVariable.supabaseSecretKey,
-  EnvironmentVariable.secUserAgent,
 ] as const
 
-export interface WorkerConfig {
+export interface DatabaseConfig {
   supabaseUrl: string
   supabaseSecretKey: string
+}
+
+export interface SecRequestConfig {
   secUserAgent: string
+}
+
+export interface FilingSyncConfig extends SecRequestConfig {
   secLookbackDays: number
 }
 
-export function loadConfig(): WorkerConfig {
-  const missing = requiredKeys.filter((key) => !process.env[key]?.trim())
+export function loadDatabaseConfig(): DatabaseConfig {
+  const missing = requiredDatabaseKeys.filter((key) => !process.env[key]?.trim())
 
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
   }
+
+  return {
+    supabaseUrl: process.env[EnvironmentVariable.supabaseUrl]!,
+    supabaseSecretKey: process.env[EnvironmentVariable.supabaseSecretKey]!,
+  }
+}
+
+export function loadSecRequestConfig(): SecRequestConfig {
+  const secUserAgent = process.env[EnvironmentVariable.secUserAgent]?.trim()
+
+  if (!secUserAgent) {
+    throw new Error(`Missing required environment variable: ${EnvironmentVariable.secUserAgent}`)
+  }
+
+  return { secUserAgent }
+}
+
+export function loadFilingSyncConfig(): FilingSyncConfig {
+  const secRequestConfig = loadSecRequestConfig()
 
   const lookback = Number.parseInt(
     process.env[EnvironmentVariable.secLookbackDays] ?? String(defaultSecLookbackDays),
@@ -30,9 +54,7 @@ export function loadConfig(): WorkerConfig {
   }
 
   return {
-    supabaseUrl: process.env[EnvironmentVariable.supabaseUrl]!,
-    supabaseSecretKey: process.env[EnvironmentVariable.supabaseSecretKey]!,
-    secUserAgent: process.env[EnvironmentVariable.secUserAgent]!,
+    ...secRequestConfig,
     secLookbackDays: lookback,
   }
 }

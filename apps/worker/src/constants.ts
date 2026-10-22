@@ -48,6 +48,27 @@ export const RuleVersion = {
   exhibitDiscovery: 'sec-exhibits-v1',
   eventGrouping: 'sec-event-grouping-v2',
   eventPersistence: 'earnings-event-persistence-v1',
+  documentTextExtraction: 'sec-html-text-v3',
+} as const
+
+export const HtmlSelector = {
+  nonReadableContent: 'head,script,style,noscript,template,svg,ix\\:hidden,[hidden],[aria-hidden="true"]',
+  table: 'table',
+  tableRow: 'tr',
+  tableCell: 'th,td',
+  lineBreak: 'br',
+  block: 'address,article,aside,blockquote,dd,div,dl,dt,fieldset,figcaption,figure,footer,'
+    + 'form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,ol,p,pre,section,summary,ul',
+} as const
+
+export const HtmlStyle = {
+  hiddenDisplay: 'display:none',
+  hiddenVisibility: 'visibility:hidden',
+} as const
+
+export const ReadableText = {
+  tableCellSeparator: ' | ',
+  maximumPreservedBlankLines: 1,
 } as const
 
 export const SecDocumentType = {
@@ -62,12 +83,14 @@ export const WorkerCommand = {
   syncFilings: 'sync-filings',
   syncDocuments: 'sync-documents',
   syncEvents: 'sync-events',
+  extractDocumentText: 'extract-document-text',
 } as const
 
 export const JobName = {
   filingsSync: 'sec-filings-sync',
   documentsSync: 'sec-documents-sync',
   eventsSync: 'earnings-events-sync',
+  documentTextExtraction: 'document-text-extraction',
 } as const
 
 export const JobStatus = {
@@ -89,6 +112,7 @@ export const DatabaseTable = {
   secFilings: 'sec_filings',
   earningsEvents: 'earnings_events',
   documents: 'documents',
+  documentTextVersions: 'document_text_versions',
   jobRuns: 'job_runs',
 } as const
 
@@ -102,6 +126,7 @@ export const StorageConfig = {
   maximumDocumentBytes: 50 * 1024 * 1024,
   fallbackDocumentName: 'sec-document.txt',
   objectSearchLimit: 100,
+  derivedTextFolder: 'derived-text',
 } as const
 
 const millisecondsPerDay = 86_400_000
@@ -121,6 +146,15 @@ export const MimeType = {
   xml: 'application/xml',
   json: 'application/json',
   plainText: 'text/plain',
+} as const
+
+export const TextEncoding = {
+  utf8: 'utf-8',
+} as const
+
+export const ContentHash = {
+  algorithm: 'sha256',
+  outputEncoding: 'hex',
 } as const
 
 export const EnvironmentVariable = {
