@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   parseEarningsReleaseExhibits,
   persistDownloadedSecDocument,
+  storageListingContainsDocument,
   type SecDocumentPersistenceActions,
 } from './documents.js'
 
@@ -25,6 +26,22 @@ test('extracts only Exhibit 99.1 documents from an SEC filing index', () => {
   assert.equal(exhibits[0]?.filename, 'release.htm')
   assert.equal(exhibits[0]?.sourceUrl, 'https://www.sec.gov/Archives/edgar/data/1/0001/release.htm')
   assert.equal(exhibits[0]?.documentType, 'sec-exhibit-99.1')
+})
+
+test('matches only the exact document name in a storage folder listing', () => {
+  const storedObjects = [
+    { name: 'meta-20260930.htm.backup' },
+    { name: 'meta-20260930.htm' },
+  ]
+
+  assert.equal(
+    storageListingContainsDocument(storedObjects, 'meta-20260930.htm'),
+    true,
+  )
+  assert.equal(
+    storageListingContainsDocument(storedObjects, 'meta-20260630.htm'),
+    false,
+  )
 })
 
 test('reuses a verified storage object when retrying a failed database insert', async () => {

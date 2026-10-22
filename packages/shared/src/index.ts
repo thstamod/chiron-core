@@ -75,8 +75,14 @@ export interface SecFilingRecord {
 
 export interface EarningsEventGroup {
   companyId: string
-  periodEnd: string
-  anchorAccessionNumber: string
+  periodEnd: string | null
+  eventStatus: 'provisional' | 'detected'
+  originFilingId: string
+  originAccessionNumber: string
+  anchorAccessionNumber: string | null
+  matchingStatus: 'periodic_only' | 'matched' | 'unmatched' | 'ambiguous'
+  matchingCandidateAccessionNumbers: string[]
+  matchingGapHours: number | null
   filingIds: string[]
   ruleVersion: string
 }

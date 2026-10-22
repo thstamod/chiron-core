@@ -50,7 +50,8 @@ Important fields:
 - `items`: the numbered subjects reported in an `8-K`.
 - `earnings_classification`: the versioned rule result explaining whether Chiron considers
   the filing earnings-related.
-- `earnings_event_id`: the grouped earnings event, when a reliable periodic-report anchor exists.
+- `earnings_event_id`: the earnings event containing this filing. The event may still be provisional
+  while it waits for a periodic report.
 - `exhibit_discovery`: the versioned result of checking the SEC index for Exhibit `99.1`.
 
 The first classification rule considers `10-Q` and `10-K` financial reports earnings-related.
@@ -76,22 +77,29 @@ Important fields:
 
 ### `earnings_events`
 
-One row for a company's results for a particular financial period. For example, Microsoft's
-results for the quarter ending 30 September 2026 would be one event.
+One row for a company's earnings announcement. It becomes the event for a particular financial
+period when the periodic report confirms that period. For example, Microsoft's results for the
+quarter ending 30 September 2026 would be one event.
 
 Important fields:
 
-- `period_end`: the final date of the reported financial period.
+- `period_end`: the final date of the reported financial period. It remains empty while an event is
+  provisional and is filled when the periodic report confirms it.
 - `fiscal_year` and `fiscal_quarter`: the company's own reporting year and quarter.
 - `detected_at`: when Chiron created the event record. This is separate from the SEC document's
   publication time and the time Chiron first saw each filing.
 - `previous_event_id`: the previous comparable event, used for change detection.
-- `status`: how far the event has progressed through ingestion, prediction, and evaluation.
+- `status`: whether grouping is still in progress, the event is provisional, the period is detected,
+  or the event has progressed to later processing, prediction, and evaluation phases.
+- `origin_filing_id`: the first filing that created the event. This remains unchanged when a
+  provisional event is confirmed.
 - `grouping_metadata`: the versioned rule and exact filing IDs used to form the event.
 
-The first grouping rule anchors an event on a `10-Q` or `10-K`, which provides a reported period
-end, and attaches the nearest earnings `8-K` within seven days. Fiscal year and quarter remain
-empty until XBRL provides reliable values; Chiron does not infer them from calendar dates.
+The second grouping rule creates a provisional event from an earnings `8-K`. It attaches one later
+`10-Q` or `10-K` published within 24 hours for the same company and then marks the event detected.
+No match leaves the event provisional; multiple matches are recorded as ambiguous. Fiscal year and
+quarter remain empty until XBRL provides reliable values; Chiron does not infer them from calendar
+dates.
 
 ### `financial_metrics`
 

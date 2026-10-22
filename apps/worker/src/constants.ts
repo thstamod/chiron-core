@@ -46,7 +46,7 @@ export const EarningsCategory = {
 export const RuleVersion = {
   earningsClassification: 'sec-earnings-v1',
   exhibitDiscovery: 'sec-exhibits-v1',
-  eventGrouping: 'sec-event-grouping-v1',
+  eventGrouping: 'sec-event-grouping-v2',
   eventPersistence: 'earnings-event-persistence-v1',
 } as const
 
@@ -79,6 +79,8 @@ export const JobStatus = {
 export type FinishedJobStatus = typeof JobStatus.succeeded | typeof JobStatus.failed
 
 export const EarningsEventStatus = {
+  groupingPending: 'grouping_pending',
+  provisional: 'provisional',
   detected: 'detected',
 } as const
 
@@ -99,6 +101,7 @@ export const StorageConfig = {
   secDocumentsBucket: 'sec-documents',
   maximumDocumentBytes: 50 * 1024 * 1024,
   fallbackDocumentName: 'sec-document.txt',
+  objectSearchLimit: 100,
 } as const
 
 const millisecondsPerDay = 86_400_000
@@ -106,7 +109,7 @@ const millisecondsPerDay = 86_400_000
 export const WorkerTiming = {
   millisecondsPerDay,
   secRequestTimeoutMs: 30_000,
-  eventGroupingWindowMs: 7 * millisecondsPerDay,
+  eventGroupingWindowMs: millisecondsPerDay,
 } as const
 
 export const WorkerLimit = {

@@ -57,8 +57,87 @@ test('groups a nearby item 2.02 filing with its periodic report', () => {
 
   assert.equal(groups.length, 1)
   assert.equal(groups[0]?.periodEnd, '2026-06-30')
+  assert.equal(groups[0]?.eventStatus, 'detected')
+  assert.equal(groups[0]?.originFilingId, 'earnings-release')
+  assert.equal(groups[0]?.matchingStatus, 'matched')
+  assert.equal(groups[0]?.matchingGapHours, 24)
   assert.deepEqual(groups[0]?.filingIds, ['earnings-release', 'quarterly-report'])
   assert.equal(groups[0]?.ruleVersion, eventGroupingRuleVersion)
+})
+
+test('creates a provisional event when an earnings release has no periodic report', () => {
+  const earningsRelease = filing({
+    id: 'earnings-release',
+    accessionNumber: '8k-accession',
+    items: ['2.02', '9.01'],
+  })
+
+  const groups = buildEarningsEventGroups([earningsRelease])
+
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0]?.periodEnd, null)
+  assert.equal(groups[0]?.eventStatus, 'provisional')
+  assert.equal(groups[0]?.originFilingId, 'earnings-release')
+  assert.equal(groups[0]?.matchingStatus, 'unmatched')
+  assert.deepEqual(groups[0]?.filingIds, ['earnings-release'])
+})
+
+test('does not match a periodic report published more than 24 hours later', () => {
+  const earningsRelease = filing({
+    id: 'earnings-release',
+    accessionNumber: '8k-accession',
+    items: ['2.02', '9.01'],
+    acceptedAt: '2026-07-29T20:00:00.000Z',
+  })
+  const lateQuarterlyReport = filing({
+    id: 'quarterly-report',
+    accessionNumber: '10q-accession',
+    formType: '10-Q',
+    reportDate: '2026-06-30',
+    acceptedAt: '2026-07-30T20:00:01.000Z',
+  })
+
+  const groups = buildEarningsEventGroups([earningsRelease, lateQuarterlyReport])
+
+  assert.equal(groups.length, 2)
+  assert.equal(groups.find((group) => group.periodEnd === null)?.matchingStatus, 'unmatched')
+  assert.equal(
+    groups.find((group) => group.periodEnd === '2026-06-30')?.matchingStatus,
+    'periodic_only',
+  )
+})
+
+test('flags an earnings release with multiple possible periodic reports as ambiguous', () => {
+  const earningsRelease = filing({
+    id: 'earnings-release',
+    accessionNumber: '8k-accession',
+    items: ['2.02', '9.01'],
+    acceptedAt: '2026-07-29T20:00:00.000Z',
+  })
+  const firstReport = filing({
+    id: 'first-report',
+    accessionNumber: 'first-10q-accession',
+    formType: '10-Q',
+    reportDate: '2026-06-30',
+    acceptedAt: '2026-07-29T22:00:00.000Z',
+  })
+  const secondReport = filing({
+    id: 'second-report',
+    accessionNumber: 'second-10k-accession',
+    formType: '10-K',
+    reportDate: '2026-07-01',
+    acceptedAt: '2026-07-29T23:00:00.000Z',
+  })
+
+  const groups = buildEarningsEventGroups([earningsRelease, firstReport, secondReport])
+  const provisionalGroup = groups.find((group) => group.periodEnd === null)
+
+  assert.equal(groups.length, 3)
+  assert.equal(provisionalGroup?.matchingStatus, 'ambiguous')
+  assert.deepEqual(provisionalGroup?.matchingCandidateAccessionNumbers, [
+    'first-10q-accession',
+    'second-10k-accession',
+  ])
 })
 
 function persistenceActions(
@@ -74,7 +153,7 @@ function persistenceActions(
     unlinkRemovedRelationships: () => runStep('unlink removed relationships'),
     linkCurrentFilings: () => runStep('link current filings'),
     linkCurrentDocuments: () => runStep('link current documents'),
-    saveCompletedGroupingMetadata: () => runStep('save completed grouping metadata'),
+    completeEarningsEvent: () => runStep('complete earnings event'),
   }
 }
 
@@ -87,7 +166,7 @@ test('saves completed grouping metadata after every relationship update', async 
     'unlink removed relationships',
     'link current filings',
     'link current documents',
-    'save completed grouping metadata',
+    'complete earnings event',
   ])
 })
 
@@ -105,6 +184,6 @@ test('does not mark grouping complete after a relationship update fails', async 
       persistEarningsEventGroup(persistenceActions(completedSteps, failingStep)),
       new RegExp(`${failingStep} failed`),
     )
-    assert.equal(completedSteps.includes('save completed grouping metadata'), false)
+    assert.equal(completedSteps.includes('complete earnings event'), false)
   }
 })

@@ -56,6 +56,17 @@ function storagePathFor(filing: SecFilingRecord, filename: string): string {
   return `${filing.ticker}/${filing.accessionNumber}/${safeDocumentName}`
 }
 
+function storageFolderFor(filing: SecFilingRecord): string {
+  return `${filing.ticker}/${filing.accessionNumber}`
+}
+
+export function storageListingContainsDocument(
+  storedObjects: Array<{ name: string }>,
+  documentName: string,
+): boolean {
+  return storedObjects.some((storedObject) => storedObject.name === documentName)
+}
+
 function calculateSha256(content: Uint8Array): string {
   return createHash('sha256').update(content).digest('hex')
 }
@@ -162,15 +173,20 @@ export async function downloadAndStoreDocument(
 
   const contentSha256 = calculateSha256(body)
   const storagePath = storagePathFor(filing, candidate.filename)
+  const storageFolder = storageFolderFor(filing)
+  const storageDocumentName = storagePath.split('/').at(-1) ?? StorageConfig.fallbackDocumentName
   const storageBucket = client.storage.from(StorageConfig.secDocumentsBucket)
 
   await persistDownloadedSecDocument({
     storageObjectExists: async () => {
-      const { data: exists, error } = await storageBucket.exists(storagePath)
+      const { data: storedObjects, error } = await storageBucket.list(storageFolder, {
+        limit: StorageConfig.objectSearchLimit,
+        search: storageDocumentName,
+      })
       if (error) {
         throw new Error(`Could not check stored ${candidate.filename}: ${error.message}`)
       }
-      return exists
+      return storageListingContainsDocument(storedObjects, storageDocumentName)
     },
     verifyExistingStorageObject: async () => {
       const { data: storedDocument, error } = await storageBucket.download(storagePath)

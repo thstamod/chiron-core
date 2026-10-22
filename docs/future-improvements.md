@@ -89,24 +89,23 @@ must remain available for auditing even if storage usage grows.
 
 ### Create provisional events before the periodic report arrives
 
-**Status:** Agreed, not implemented
+**Status:** Implemented and verified against the live database on 2026-10-21
 
 #### Current behavior
 
-Event grouping requires a `10-Q` or `10-K` with a reporting-period end date to act as the anchor.
-An earnings-related `8-K` and its press-release exhibit remain ungrouped until that periodic report
-is available. Companies can publish the earnings release before filing the detailed report, so this
-can delay creation of the earnings event and any live prediction.
+An earnings-related `8-K` creates a provisional event immediately. A single `10-Q` or `10-K`
+published afterward for the same company within the versioned 24-hour window confirms that event's
+reporting-period end date. The original event row and `detected_at` value are preserved. Zero
+matches leave the event provisional, while multiple matches are recorded as ambiguous instead of
+being joined automatically.
 
-#### Proposed behavior
+#### Implemented behavior
 
 1. Create a provisional earnings event when a confidently classified earnings `8-K` is discovered.
 2. Preserve the original event detection time and the documents that were available at that time.
 3. When the related `10-Q` or `10-K` arrives, attach it to the provisional event and confirm the
    reporting-period end date.
-4. Manually test the current seven-day matching window against real earnings events. Keep, shorten,
-   lengthen, or replace it based on the observed matches rather than treating seven days as a
-   financial fact.
+4. Use a 24-hour forward-only matching window based on the initial stored-data validation.
 5. Use a deterministic matching rule with a version number and supporting metadata.
 6. Flag ambiguous matches for manual review instead of silently joining unrelated filings.
 
@@ -119,8 +118,20 @@ can delay creation of the earnings event and any live prediction.
 #### What this does not improve
 
 An `8-K` does not always provide a reliable reporting-period end date, and not every `8-K` concerns
-earnings. The matching rule is an assumption that must be manually validated before it is trusted
-for live predictions.
+earnings. The 24-hour rule was validated only against the current large-company sample and is not a
+universal financial fact.
+
+#### Initial matching-window validation
+
+The stored-data audit covered 40 earnings `8-K` filings across the initial five-company watchlist.
+All 40 had exactly one later `10-Q` or `10-K` within 24 hours, no release was unmatched or
+ambiguous, and the largest observed gap was 13.52 hours. The sample supports 24 hours for the first
+PoC but must be repeated when the watchlist or historical universe expands.
+
+After the migration, the first live run upgraded all 40 existing events without changing their
+`detected_at` values. Every event received its origin filing and version-two grouping metadata, no
+duplicate company-period or origin-filing relationships were found, and an immediate second run
+made zero changes.
 
 #### Acceptance checks
 
@@ -129,8 +140,8 @@ for live predictions.
 - A later matching periodic report upgrades the existing event instead of creating a second event.
 - The event's original detection timestamp is not replaced during that upgrade.
 - An ambiguous periodic-report match is recorded for review and is not linked automatically.
-- A manually reviewed sample records whether the seven-day rule joined the correct filings, missed
-  valid matches, or created false matches.
+- A stored-data sample records whether the matching rule joined the correct filings, missed valid
+  matches, or created ambiguous matches. Implemented for the initial 40-event sample.
 - Any change to the matching window creates a new grouping-rule version.
 
 ### Make event-group persistence recoverable
@@ -179,24 +190,73 @@ simplest appropriate first step.
   immediately repeated run.
 - Existing event detection timestamps are not included in any retry or completion update.
 
-### Represent incomplete event grouping with an explicit status
+### Make event persistence atomic with a PostgreSQL transaction
 
-**Status:** Agreed, not implemented
+**Status:** Planned after the PoC
 
-**Priority:** Next iteration
+**Priority:** High before concurrent workers or commercial use
 
 #### Current behavior
 
-A newly created earnings event immediately has the `detected` status, even though its filing and
-document relationships may still be incomplete. An empty or outdated `grouping_metadata` value is
-the technical marker that tells the worker to retry the grouping operation.
+The retry-safe write order prevents an incomplete event from being presented as complete, but it
+still uses several separate Supabase database requests. A temporary failure can leave an event in
+`grouping_pending` until the next worker run repairs it.
 
 #### Proposed behavior
 
+1. Add a versioned PostgreSQL function through a Supabase migration.
+2. Send the complete event group to that function with one server-side `rpc()` call.
+3. Inside one transaction, find or create the event, validate conflicts, update filing and document
+   relationships, save grouping metadata, and set the final status.
+4. Acquire a database lock for the event so two workers cannot modify it concurrently.
+5. Preserve the original `detected_at` value when a provisional event becomes confirmed.
+6. Keep Supabase Storage outside the transaction. Continue using deterministic paths and SHA-256
+   verification so a later run can repair a file upload whose database operation failed.
+
+#### What this improves
+
+- Every database change for one event either succeeds together or is rolled back together.
+- Concurrent workers cannot create conflicting relationships for the same event.
+- The TypeScript worker becomes simpler because PostgreSQL owns the multi-table write operation.
+
+#### What this does not improve
+
+PostgreSQL cannot include Supabase Storage uploads in the same transaction. File persistence must
+remain immutable and retry-safe. A database transaction also cannot decide whether the financial
+matching rule itself is correct; ambiguous matches must still be recorded for review.
+
+#### Implementation trigger
+
+Implement this before running multiple workers, substantially expanding the watchlist, or preparing
+the system for commercial use. It can also be brought forward if live PoC logs show repeated partial
+database failures.
+
+#### Acceptance checks
+
+- A simulated failure during any database step leaves none of that transaction's changes committed.
+- Two concurrent calls for the same event produce one consistent event and relationship set.
+- A provisional event is confirmed without changing its original `detected_at` value.
+- Existing uniqueness constraints remain active as a final protection against duplicates.
+- A Storage upload followed by a failed database transaction is repaired safely by the next run.
+
+### Represent incomplete event grouping with an explicit status
+
+**Status:** Implemented and verified against the live database on 2026-10-21
+
+**Priority:** Completed prerequisite for the live PoC
+
+#### Current behavior
+
+A newly created earnings event has the `grouping_pending` status while its filing and document
+relationships are saved. The final persistence step changes it to `provisional` when only an
+earnings release is available or `detected` when a periodic report has confirmed the event.
+
+#### Implemented behavior
+
 1. Add an explicit event status such as `grouping_pending`.
 2. Create an event with that status before linking its filings and documents.
-3. Change the status to `detected` only after every relationship and the completed grouping
-   metadata have been saved successfully.
+3. Change the status to `provisional` or `detected` only after every relationship and the completed
+   grouping metadata have been saved successfully.
 4. Keep incomplete events visible for retrying and operational review.
 
 #### What this improves
@@ -208,9 +268,38 @@ the technical marker that tells the worker to retry the grouping operation.
 #### Acceptance checks
 
 - New events begin with `grouping_pending`.
-- A successful grouping changes the status to `detected` only at the final completion step.
+- A successful grouping changes the status to `provisional` or `detected` only at the final
+  completion step.
 - A failed relationship update leaves the status as `grouping_pending`.
 - A later worker run can complete the event without changing its original detection timestamp.
+
+### Reconcile amended earnings releases
+
+**Status:** Planned
+
+**Priority:** Next iteration before expanding the historical dataset
+
+#### Current behavior
+
+An earnings `8-K` and a later earnings `8-K/A` can each create a provisional event when both arrive
+before the related `10-Q` or `10-K`. Once the periodic report arrives, both filings can join the
+confirmed group, but the additional provisional row may remain and require manual review.
+
+#### Proposed behavior
+
+1. Detect an amended release using its company, form type, publication order, report date, and SEC
+   metadata instead of assuming every nearby `8-K/A` belongs to the same event.
+2. Preserve both source filings and their publication timestamps.
+3. Designate one event as the continuing event and record why the amendment was attached to it.
+4. Remove or mark the redundant provisional event through an explicit, auditable operation.
+5. Never merge two provisional events automatically when the relationship is ambiguous.
+
+#### Acceptance checks
+
+- A confirmed event can contain both its original earnings `8-K` and a related `8-K/A`.
+- Confirmation does not leave a second active provisional event for the same amended release.
+- Unrelated nearby `8-K` filings are not merged merely because their publication times are close.
+- The original detection time and both source-publication times remain available for auditing.
 
 ### Apply one rate limiter to every SEC request
 
@@ -272,9 +361,11 @@ stored separately as derived data.
 
 The worker loads the source URLs stored in the `documents` table and skips a download when the same
 URL has already been archived. If a Storage upload succeeds but the following database insert
-fails, the next run finds the deterministic Storage path, downloads the existing private object,
-verifies its SHA-256 fingerprint, and retries the missing database insert. New uploads disable
-overwriting so archived evidence cannot be silently replaced.
+fails, the next run lists the deterministic Storage folder and compares the exact filename. It then
+downloads the existing private object, verifies its SHA-256 fingerprint, and retries the missing
+database insert. New uploads disable overwriting so archived evidence cannot be silently replaced.
+Folder listing is used because the Supabase `exists()` request returned HTTP 400 for a valid missing
+object during the live META filing run on 2026-10-22.
 
 #### Proposed behavior
 
@@ -310,6 +401,65 @@ that storage is a problem before measurements show that it is.
 - The same document and extraction version produces at most one extraction record.
 - A new prompt or model version creates a new extraction without overwriting the previous result.
 - Every prediction still points to the exact original documents and extraction versions it used.
+
+### Record material company news as evaluation context
+
+**Status:** Agreed, not implemented
+
+**Priority:** Post-MVP research feature
+
+#### Current behavior
+
+Chiron monitors SEC filings related to earnings. It does not monitor general company announcements,
+such as a major partnership, product announcement, or acquisition. A material announcement during
+the 20-trading-day evaluation period could move the stock price, but the result currently has no
+structured note explaining that external event. Chiron can also miss the earliest version of an
+earnings release when a company publishes it on its investor-relations website before the related
+SEC `8-K`.
+
+#### Proposed behavior
+
+1. Start with reliable first-party sources: non-earnings SEC `8-K` filings, company investor-
+   relations pages, and official company newsrooms.
+2. Monitor official investor-relations earnings releases so a provisional event can be created when
+   the company publication appears before its SEC filing.
+3. Use the later `8-K` and `10-Q` or `10-K` to confirm and complete that same event without replacing
+   its original detection timestamp.
+4. Store the source URL, publication timestamp, discovery timestamp, company, and a short manual or
+   structured description of the event.
+5. Separate events published before the prediction cutoff from events published afterward.
+6. Allow later events to annotate an evaluation result, but never update the original prediction,
+   its inputs, or its score.
+7. Consider using pre-prediction news as a versioned model input only after the earnings-only
+   baseline has been validated.
+8. Avoid storing or processing third-party article text until its licensing, duplication, and
+   timestamp reliability have been evaluated.
+
+#### What this improves
+
+- Helps explain when a 1-, 5-, or 20-day return may have been influenced by news after earnings.
+- Reduces the risk of incorrectly attributing every price move to the earnings signal.
+- Preserves a path for later research into whether already-public company developments add useful
+  information.
+
+#### What this does not improve
+
+An annotation cannot prove that a particular announcement caused a price movement. News-based
+signals also introduce classification noise and additional data-source complexity, so this feature
+does not belong in the first earnings-only score.
+
+#### Acceptance checks
+
+- Every recorded event retains its source and original publication timestamp.
+- An official investor-relations release published before the SEC filing can create one provisional
+  event, which the later SEC filings confirm instead of duplicating.
+- A prediction is timestamped when Chiron actually finishes processing the release and is never
+  backdated to the source publication time.
+- Events published after a prediction cutoff cannot appear in that prediction's input snapshot.
+- Adding or correcting an evaluation annotation never changes the immutable prediction.
+- The dashboard clearly labels later news as context rather than as part of the original signal.
+- Duplicate announcements from several sources can be linked without counting them as several
+  independent events.
 
 ## Adding another improvement
 

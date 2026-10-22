@@ -184,7 +184,7 @@ Report names in plain language:
 flowchart LR
     A[downloadAndStoreDocument] --> B[Fetch original bytes from SEC]
     B --> C[Check file size and calculate SHA-256]
-    C --> D{Storage path already exists?}
+    C --> D{Exact filename appears in the Storage folder?}
     D -->|No| E[Upload without allowing overwrite]
     D -->|Yes| F[Download and verify its fingerprint]
     E --> G[Insert documents row: URL, path, timestamps, hash, byte size]
@@ -193,7 +193,11 @@ flowchart LR
 
 **SHA-256** is a fingerprint calculated from file contents. It helps identify which exact bytes were stored. Storage holds the file; the `documents` table holds its catalog record. Upload and database insert are separate operations, so a retry verifies an existing Storage object before recreating a missing database record.
 
-Other helpers in `documents.ts`: `contentTypeFor()` identifies the fallback file format, `storagePathFor()` chooses the bucket path, and `normalizeSecDocumentUrl()` converts an attachment link to its document URL. Cheerio reads the SEC attachment-list HTML so the parser can find Exhibit 99.1 rows.
+Other helpers in `documents.ts`: `contentTypeFor()` identifies the fallback file format,
+`storagePathFor()` and `storageFolderFor()` choose the bucket location,
+`storageListingContainsDocument()` checks the exact filename, and `normalizeSecDocumentUrl()`
+converts an attachment link to its document URL. Cheerio reads the SEC attachment-list HTML so the
+parser can find Exhibit 99.1 rows.
 
 ## 7. Job three: connect related filings
 
@@ -203,16 +207,21 @@ An **earnings event** is one company update, potentially represented by several 
 flowchart TD
     A[index.ts: syncEvents] --> B[Load stored filings]
     B --> C[events.ts: buildEarningsEventGroups]
-    C --> D[Use original 10-Q or 10-K as period anchor]
-    D --> E[Attach periodic reports with same company and period end]
-    E --> F[Attach earnings 8-K to nearest same-company anchor within 7 days]
-    F --> G[events.ts: saveEarningsEventGroups]
-    G --> H[Create or update earnings_events]
-    H --> I[Link sec_filings and documents to event]
-    I --> J[Link each company event to its previous event]
+    C --> D[Create detected group for each 10-Q or 10-K]
+    C --> E[Evaluate each earnings 8-K]
+    E --> F{Exactly one later periodic report within 24 hours?}
+    F -->|Yes| G[Attach release to that detected group]
+    F -->|No match| H[Create an unmatched provisional group]
+    F -->|Several matches| I[Create an ambiguous provisional group]
+    D --> J[events.ts: saveEarningsEventGroups]
+    G --> J
+    H --> J
+    I --> J
+    J --> K[Link filings and documents without replacing detected_at]
+    K --> L[Link confirmed company events to their previous event]
 ```
 
-The seven-day matching window is an initial rule to validate manually. It is not a guarantee that filings concern the same results. Without a qualifying original 10-Q/10-K anchor, an 8-K remains stored but ungrouped. Annual reports can arrive later than earnings releases, so this approach needs improvement before immediate live predictions.
+The 24-hour forward-only window matched all 40 earnings releases in the initial five-company sample; the largest gap was 13.52 hours. This is evidence for the first PoC, not a guarantee for other companies. The validation must be repeated when the watchlist expands.
 
 `buildEarningsEventGroups()` calculates groups in memory. `saveEarningsEventGroups()` writes them to Supabase. Its helpers are `filingTimestamp()` for date comparisons, `eventKey()` for a company-and-period identifier, and `sameFilingIds()` for checking group membership.
 

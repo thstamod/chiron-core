@@ -30,7 +30,6 @@ export function buildEarningsEventGroups(filings: SecFilingRecord[]): EarningsEv
       || filing.formType === SecForm.annualReport
     ) && filing.reportDate,
   )
-  const groups = new Map<string, SecFilingRecord[]>()
   const anchorByKey = new Map<string, SecFilingRecord>()
 
   for (const anchor of anchors) {
@@ -41,14 +40,29 @@ export function buildEarningsEventGroups(filings: SecFilingRecord[]): EarningsEv
     }
   }
 
-  for (const [key, anchor] of anchorByKey) groups.set(key, [anchor])
+  const groups = new Map<string, EarningsEventGroup>()
+  for (const [key, anchor] of anchorByKey) {
+    groups.set(key, {
+      companyId: anchor.companyId,
+      periodEnd: anchor.reportDate!,
+      eventStatus: EarningsEventStatus.detected,
+      originFilingId: anchor.id,
+      originAccessionNumber: anchor.accessionNumber,
+      anchorAccessionNumber: anchor.accessionNumber,
+      matchingStatus: 'periodic_only',
+      matchingCandidateAccessionNumbers: [],
+      matchingGapHours: null,
+      filingIds: [anchor.id],
+      ruleVersion: eventGroupingRuleVersion,
+    })
+  }
 
   for (const filing of filings) {
     const isPeriodicReport = periodicSecForms.has(filing.formType)
     if (filing.reportDate && isPeriodicReport) {
       const exactGroup = groups.get(eventKey(filing.companyId, filing.reportDate))
-      if (exactGroup && !exactGroup.some((member) => member.id === filing.id)) {
-        exactGroup.push(filing)
+      if (exactGroup && !exactGroup.filingIds.includes(filing.id)) {
+        exactGroup.filingIds.push(filing.id)
         continue
       }
     }
@@ -56,38 +70,68 @@ export function buildEarningsEventGroups(filings: SecFilingRecord[]): EarningsEv
     const classification = classifyEarningsFiling(filing.formType, filing.items)
     if (classification.category !== EarningsCategory.release) continue
 
-    const filingTime = filingTimestamp(filing)
-    const closestAnchor = [...anchorByKey.values()]
+    const releaseTime = filingTimestamp(filing)
+    const matchingAnchors = [...anchorByKey.values()]
       .filter((anchor) => anchor.companyId === filing.companyId)
-      .map((anchor) => ({ anchor, distance: Math.abs(filingTime - filingTimestamp(anchor)) }))
-      .filter(({ distance }) => distance <= WorkerTiming.eventGroupingWindowMs)
-      .sort((left, right) => left.distance - right.distance)[0]?.anchor
+      .map((anchor) => ({ anchor, distance: filingTimestamp(anchor) - releaseTime }))
+      .filter(({ distance }) => (
+        distance >= 0 && distance <= WorkerTiming.eventGroupingWindowMs
+      ))
+      .sort((left, right) => left.distance - right.distance)
 
-    if (!closestAnchor?.reportDate) continue
-    const group = groups.get(eventKey(closestAnchor.companyId, closestAnchor.reportDate))
-    if (group && !group.some((member) => member.id === filing.id)) group.push(filing)
+    if (matchingAnchors.length === 1) {
+      const { anchor, distance } = matchingAnchors[0]!
+      const group = groups.get(eventKey(anchor.companyId, anchor.reportDate!))
+      if (!group) continue
+
+      if (!group.filingIds.includes(filing.id)) group.filingIds.push(filing.id)
+      if (
+        group.matchingStatus !== 'matched'
+        || releaseTime < filingTimestamp(
+          filings.find((candidate) => candidate.id === group.originFilingId) ?? anchor,
+        )
+      ) {
+        group.originFilingId = filing.id
+        group.originAccessionNumber = filing.accessionNumber
+        group.matchingGapHours = Number((distance / 3_600_000).toFixed(2))
+      }
+      group.matchingStatus = 'matched'
+      group.matchingCandidateAccessionNumbers = [anchor.accessionNumber]
+      continue
+    }
+
+    groups.set(`provisional:${filing.id}`, {
+      companyId: filing.companyId,
+      periodEnd: null,
+      eventStatus: EarningsEventStatus.provisional,
+      originFilingId: filing.id,
+      originAccessionNumber: filing.accessionNumber,
+      anchorAccessionNumber: null,
+      matchingStatus: matchingAnchors.length === 0 ? 'unmatched' : 'ambiguous',
+      matchingCandidateAccessionNumbers: matchingAnchors.map(
+        ({ anchor }) => anchor.accessionNumber,
+      ),
+      matchingGapHours: null,
+      filingIds: [filing.id],
+      ruleVersion: eventGroupingRuleVersion,
+    })
   }
 
-  return [...groups.entries()]
-    .map(([key, members]) => {
-      const anchor = anchorByKey.get(key)!
-
-      return {
-        companyId: anchor.companyId,
-        periodEnd: anchor.reportDate!,
-        anchorAccessionNumber: anchor.accessionNumber,
-        filingIds: members.map((filing) => filing.id).sort(),
-        ruleVersion: eventGroupingRuleVersion,
-      }
-    })
-    .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
+  return [...groups.values()]
+    .map((group) => ({ ...group, filingIds: group.filingIds.sort() }))
+    .sort((left, right) => (
+      (left.periodEnd ?? left.originAccessionNumber)
+        .localeCompare(right.periodEnd ?? right.originAccessionNumber)
+    ))
 }
 
 interface ExistingEventRow {
   id: string
   company_id: string
-  period_end: string
+  period_end: string | null
+  origin_filing_id: string | null
   detected_at: string
+  status: string
   previous_event_id: string | null
   grouping_metadata: {
     ruleVersion?: string
@@ -112,7 +156,7 @@ export interface EventGroupPersistenceActions {
   unlinkRemovedRelationships: () => Promise<void>
   linkCurrentFilings: () => Promise<void>
   linkCurrentDocuments: () => Promise<void>
-  saveCompletedGroupingMetadata: () => Promise<void>
+  completeEarningsEvent: () => Promise<void>
 }
 
 export async function persistEarningsEventGroup(
@@ -121,7 +165,7 @@ export async function persistEarningsEventGroup(
   await actions.unlinkRemovedRelationships()
   await actions.linkCurrentFilings()
   await actions.linkCurrentDocuments()
-  await actions.saveCompletedGroupingMetadata()
+  await actions.completeEarningsEvent()
 }
 
 async function createPendingEarningsEvent(
@@ -137,7 +181,8 @@ async function createPendingEarningsEvent(
       fiscal_quarter: null,
       period_end: group.periodEnd,
       detected_at: detectedAt,
-      status: EarningsEventStatus.detected,
+      status: EarningsEventStatus.groupingPending,
+      origin_filing_id: group.originFilingId,
     })
     .select('id')
     .single()
@@ -193,14 +238,20 @@ async function linkCurrentDocumentsToEvent(
   if (error) throw new Error(`Could not link documents: ${error.message}`)
 }
 
-async function saveCompletedGroupingMetadata(
+async function completeEarningsEvent(
   client: SupabaseClient,
   eventId: string,
+  group: EarningsEventGroup,
   groupingMetadata: Record<string, unknown>,
 ): Promise<void> {
   const { error } = await client
     .from(DatabaseTable.earningsEvents)
-    .update({ grouping_metadata: groupingMetadata })
+    .update({
+      period_end: group.periodEnd,
+      origin_filing_id: group.originFilingId,
+      status: group.eventStatus,
+      grouping_metadata: groupingMetadata,
+    })
     .eq('id', eventId)
   if (error) throw new Error(`Could not complete earnings event grouping: ${error.message}`)
 }
@@ -213,7 +264,10 @@ export async function saveEarningsEventGroups(
     async (from, to) => {
       const { data, error } = await client
         .from(DatabaseTable.earningsEvents)
-        .select('id,company_id,period_end,detected_at,previous_event_id,grouping_metadata')
+        .select(
+          'id,company_id,period_end,origin_filing_id,detected_at,status,'
+          + 'previous_event_id,grouping_metadata',
+        )
         .order('company_id')
         .order('period_end')
         .order('id')
@@ -223,18 +277,39 @@ export async function saveEarningsEventGroups(
     },
     'Could not load earnings events',
   )
-  const existingByKey = new Map(
-    existingRows.map((event) => [eventKey(event.company_id, event.period_end), event]),
+  const existingByPeriodKey = new Map<string, ExistingEventRow>(
+    existingRows
+      .filter((event): event is ExistingEventRow & { period_end: string } => Boolean(event.period_end))
+      .map((event) => [eventKey(event.company_id, event.period_end), event]),
+  )
+  const existingByOriginFilingId = new Map<string, ExistingEventRow>(
+    existingRows
+      .filter(
+        (event): event is ExistingEventRow & { origin_filing_id: string } => (
+          Boolean(event.origin_filing_id)
+        ),
+      )
+      .map((event) => [event.origin_filing_id, event]),
   )
   let changedEvents = 0
   let linkedFilings = 0
 
   for (const group of groups) {
-    const key = eventKey(group.companyId, group.periodEnd)
-    const existing = existingByKey.get(key)
+    const periodKey = group.periodEnd ? eventKey(group.companyId, group.periodEnd) : null
+    const existingForPeriod = periodKey ? existingByPeriodKey.get(periodKey) : undefined
+    const existingForOrigin = existingByOriginFilingId.get(group.originFilingId)
+    if (existingForPeriod && existingForOrigin && existingForPeriod.id !== existingForOrigin.id) {
+      throw new Error(
+        `Could not safely merge duplicate earnings events for ${group.originAccessionNumber}`,
+      )
+    }
+    const existing = existingForPeriod ?? existingForOrigin
     const unchanged = existing
       && existing.grouping_metadata?.ruleVersion === group.ruleVersion
       && existing.grouping_metadata.persistenceVersion === eventPersistenceVersion
+      && existing.period_end === group.periodEnd
+      && existing.origin_filing_id === group.originFilingId
+      && existing.status === group.eventStatus
       && sameFilingIds(existing.grouping_metadata.filingIds, group.filingIds)
 
     if (unchanged) continue
@@ -242,23 +317,34 @@ export async function saveEarningsEventGroups(
     const groupingMetadata = {
       ruleVersion: group.ruleVersion,
       persistenceVersion: eventPersistenceVersion,
+      eventStatus: group.eventStatus,
+      originAccessionNumber: group.originAccessionNumber,
       anchorAccessionNumber: group.anchorAccessionNumber,
+      matchingStatus: group.matchingStatus,
+      matchingCandidateAccessionNumbers: group.matchingCandidateAccessionNumbers,
+      matchingGapHours: group.matchingGapHours,
       filingIds: group.filingIds,
       groupedAt: new Date().toISOString(),
     }
     let eventId = existing?.id
+    let eventDetectedAt = existing?.detected_at
 
     if (!eventId) {
       const createdEvent = await createPendingEarningsEvent(client, group)
       eventId = createdEvent.eventId
-      existingByKey.set(key, {
+      eventDetectedAt = createdEvent.detectedAt
+      const createdEventRow: ExistingEventRow = {
         id: eventId,
         company_id: group.companyId,
         period_end: group.periodEnd,
+        origin_filing_id: group.originFilingId,
         detected_at: createdEvent.detectedAt,
+        status: EarningsEventStatus.groupingPending,
         previous_event_id: null,
         grouping_metadata: {},
-      })
+      }
+      existingByOriginFilingId.set(group.originFilingId, createdEventRow)
+      if (periodKey) existingByPeriodKey.set(periodKey, createdEventRow)
     }
 
     const removedFilingIds = existing?.grouping_metadata?.filingIds
@@ -267,12 +353,26 @@ export async function saveEarningsEventGroups(
       unlinkRemovedRelationships: () => unlinkRemovedEventRelationships(client, removedFilingIds),
       linkCurrentFilings: () => linkCurrentFilingsToEvent(client, eventId, group.filingIds),
       linkCurrentDocuments: () => linkCurrentDocumentsToEvent(client, eventId, group.filingIds),
-      saveCompletedGroupingMetadata: () => saveCompletedGroupingMetadata(
+      completeEarningsEvent: () => completeEarningsEvent(
         client,
         eventId,
+        group,
         groupingMetadata,
       ),
     })
+
+    const completedEventRow: ExistingEventRow = {
+      id: eventId,
+      company_id: group.companyId,
+      period_end: group.periodEnd,
+      origin_filing_id: group.originFilingId,
+      detected_at: eventDetectedAt!,
+      status: group.eventStatus,
+      previous_event_id: existing?.previous_event_id ?? null,
+      grouping_metadata: groupingMetadata,
+    }
+    existingByOriginFilingId.set(group.originFilingId, completedEventRow)
+    if (periodKey) existingByPeriodKey.set(periodKey, completedEventRow)
 
     changedEvents += 1
     linkedFilings += group.filingIds.length
@@ -283,6 +383,7 @@ export async function saveEarningsEventGroups(
       const { data, error } = await client
         .from(DatabaseTable.earningsEvents)
         .select('id,company_id,period_end,previous_event_id')
+        .not('period_end', 'is', null)
         .order('company_id')
         .order('period_end')
         .order('id')
