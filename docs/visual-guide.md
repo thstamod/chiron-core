@@ -70,6 +70,7 @@ flowchart TD
 | `apps/worker/src/database.ts` | Reads and writes Supabase database rows. |
 | `apps/worker/src/documents.ts` | Finds earnings attachments, downloads files and stores them. |
 | `apps/worker/src/document-text.ts` | Converts archived SEC HTML into versioned readable text. |
+| `apps/worker/src/financial-derived-metrics.ts` | Calculates versioned standard comparisons from extracted SEC values. |
 | `apps/worker/src/content-hash.ts` | Creates SHA-256 fingerprints for original and derived files. |
 | `apps/worker/src/storage.ts` | Persists immutable files and safely handles concurrent uploads. |
 | `apps/worker/src/events.ts` | Groups related filings into earnings events. |
@@ -104,11 +105,13 @@ flowchart TD
     D -->|sync-events| E[syncEvents]
     D -->|extract-document-text| T[extractDocumentText]
     D -->|extract-financial-metrics| X[extractFinancialMetrics]
+    D -->|calculate-financial-derived-metrics| C[calculateFinancialDerivedMetrics]
     F --> J[jobs.ts: runTrackedJob]
     DOC --> J
     E --> J
     T --> J
     X --> J
+    C --> J
     J --> START[Record running in job_runs]
     START --> EXEC[Execute selected job]
     EXEC --> OK[Record succeeded and counts]
@@ -117,8 +120,8 @@ flowchart TD
 
 For example, `pnpm worker:sync-filings` at the repository root invokes the worker's `sync:filings` script, which runs `tsx src/index.ts sync-filings`. `tsx` executes TypeScript; `main()` reads `sync-filings` from the command-line arguments.
 
-The GitHub workflow runs filings, documents, events, readable-text extraction, then financial-metric
-extraction. A failed step stops the later steps. Health checks are not recorded through
+The GitHub workflow runs filings, documents, events, readable-text extraction, financial-metric
+extraction, then standard financial calculations. A failed step stops the later steps. Health checks are not recorded through
 `runTrackedJob()`.
 
 The cron line requests hourly runs on weekdays in UTC. Actual execution can be delayed or skipped by GitHub. This is collection scheduling, not a precise prediction clock.
@@ -287,7 +290,29 @@ The visible value may be `64,601` while its XBRL scale is `6`. The normalized va
 source fact text and XBRL attributes support review. A separate completion row makes partial
 database failures recoverable and records missing-metric warnings without retrying forever.
 
-## 10. How the database records connect
+## 10. Job six: calculate standard financial comparisons
+
+```mermaid
+flowchart TD
+    A[index.ts: calculateFinancialDerivedMetrics] --> B[Load the latest versioned metric set for each event]
+    B --> C[Find the same fiscal period one year earlier]
+    C --> D[Calculate revenue growth and net margins]
+    D --> E[Store exact input metric IDs and formula version]
+    E --> F[Verify derived values]
+    F --> G[Save completion record and fingerprints]
+```
+
+Quarterly results are compared with the same company quarter one fiscal year earlier; annual
+results are compared with the preceding full year. This avoids treating a normal seasonal change,
+such as holiday sales, as ordinary growth. Missing comparable data produces a stored warning and
+does not cause endless retries. An amended filing creates a different input fingerprint, preserving
+both the old and new calculations.
+
+Net margin means `net income ÷ revenue`. Margin change is measured in percentage points: moving
+from `15%` to `20%` is a five-percentage-point improvement. These formulas describe reported
+results; they do not decide whether a stock is attractive.
+
+## 11. How the database records connect
 
 ```mermaid
 erDiagram
@@ -299,6 +324,8 @@ erDiagram
     documents ||--o{ document_text_versions : derives
     documents ||--o{ financial_metric_extractions : completes
     earnings_events ||--o{ financial_metrics : measures
+    earnings_events ||--o{ financial_derived_metrics : derives
+    earnings_events ||--o{ financial_derived_metric_calculations : completes
     earnings_events o|--o{ earnings_events : previous_event
 ```
 
@@ -314,13 +341,15 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 | `job_runs` | Operational history of worker jobs. |
 | `financial_metrics` | Versioned GAAP values with exact inline-XBRL evidence. |
 | `financial_metric_extractions` | Completion and reproducibility record for each deterministic XBRL extraction. |
+| `financial_derived_metrics` | Versioned revenue-growth and margin calculations with exact source metric IDs. |
+| `financial_derived_metric_calculations` | Input manifests, warnings and completion records for derived calculations. |
 | `extraction_runs` | Created for future LLM outputs and their input evidence. |
 | `predictions` | Created for future research scores and snapshots. Update/delete protection is still planned. |
 | `evaluations` | Created for future comparisons of stock and benchmark returns. |
 
 Database migrations are applied separately. The GitHub collection workflow does not apply SQL migrations.
 
-## 11. Configuration and database helper functions
+## 12. Configuration and database helper functions
 
 ```mermaid
 flowchart LR
@@ -353,7 +382,7 @@ The local `.env` is ignored by Git. GitHub supplies environment variables separa
 
 `pagination.ts: fetchAllPages()` requests rows in batches of 500, collecting them until the last batch. Callers provide stable ordering. `jobs.ts: runTrackedJob()` wraps a job with database history and propagates failures to the command-line process.
 
-## 12. Vue: the part familiar to a frontend engineer
+## 13. Vue: the part familiar to a frontend engineer
 
 ```mermaid
 flowchart TD
@@ -370,7 +399,7 @@ flowchart TD
 
 `scoreLabel()` formats positive numbers with a `+`. The example records supply scores, guidance and results. The demo's displayed processing stages illustrate the intended product; they are not evidence that extraction or prediction jobs are running. Some navigation links and buttons are placeholders.
 
-## 13. The future evaluation pipeline
+## 14. The future evaluation pipeline
 
 Everything below is planned; these jobs do not exist yet.
 
@@ -390,7 +419,7 @@ The **analysis cutoff** is the latest time from which information is allowed int
 
 For example, an analysis completed after market close cannot claim the earlier closing price as an available entry. Historical grouping must also filter each source by its availability time; a later report or amendment cannot be used in an earlier prediction.
 
-## 14. Suggested reading path
+## 15. Suggested reading path
 
 1. Start with sections 1–3 to understand the purpose and locations.
 2. Read `index.ts: main()` alongside section 4.
@@ -398,6 +427,6 @@ For example, an analysis completed after market close cannot claim the earlier c
 4. Follow `syncDocuments()` and `documents.ts` alongside section 6.
 5. Follow `syncEvents()` and `events.ts` alongside section 7.
 6. Follow `extractDocumentText()` and `document-text.ts` alongside section 8.
-7. Use sections 9–10 while reading migrations and database operations.
-8. Read the Vue files alongside section 11.
-9. Keep section 12 separate from today's implemented behavior.
+7. Use sections 9–12 while reading financial extraction, calculations, migrations and database operations.
+8. Read the Vue files alongside section 13.
+9. Keep section 14 separate from today's implemented behavior.

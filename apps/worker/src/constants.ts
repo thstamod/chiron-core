@@ -50,6 +50,7 @@ export const RuleVersion = {
   eventPersistence: 'earnings-event-persistence-v1',
   documentTextExtraction: 'sec-html-text-v3',
   financialMetricExtraction: 'sec-xbrl-financial-metrics-v1',
+  financialDerivedMetrics: 'financial-derived-metrics-v1',
 } as const
 
 export const FinancialMetricCode = {
@@ -57,6 +58,26 @@ export const FinancialMetricCode = {
   netIncome: 'net_income',
   earningsPerShareBasic: 'earnings_per_share_basic',
   earningsPerShareDiluted: 'earnings_per_share_diluted',
+} as const
+
+export const FinancialDerivedMetricCode = {
+  revenueGrowthYearOverYearPercent: 'revenue_growth_year_over_year_percent',
+  netMarginPercent: 'net_margin_percent',
+  netMarginChangeYearOverYearPercentagePoints:
+    'net_margin_change_year_over_year_percentage_points',
+} as const
+
+export const FinancialDerivedMetricUnit = {
+  percent: 'percent',
+  percentagePoints: 'percentage_points',
+} as const
+
+export const FinancialCalculationExpression = {
+  revenueGrowthYearOverYearPercent:
+    '((current_revenue - previous_year_revenue) / previous_year_revenue) * 100',
+  netMarginPercent: '(current_net_income / current_revenue) * 100',
+  netMarginChangeYearOverYearPercentagePoints:
+    'current_net_margin_percent - previous_year_net_margin_percent',
 } as const
 
 export const AccountingBasis = {
@@ -139,6 +160,7 @@ export const WorkerCommand = {
   syncEvents: 'sync-events',
   extractDocumentText: 'extract-document-text',
   extractFinancialMetrics: 'extract-financial-metrics',
+  calculateFinancialDerivedMetrics: 'calculate-financial-derived-metrics',
 } as const
 
 export const JobName = {
@@ -147,6 +169,7 @@ export const JobName = {
   eventsSync: 'earnings-events-sync',
   documentTextExtraction: 'document-text-extraction',
   financialMetricExtraction: 'financial-metric-extraction',
+  financialDerivedMetricCalculation: 'financial-derived-metric-calculation',
 } as const
 
 export const JobStatus = {
@@ -171,6 +194,8 @@ export const DatabaseTable = {
   documentTextVersions: 'document_text_versions',
   financialMetrics: 'financial_metrics',
   financialMetricExtractions: 'financial_metric_extractions',
+  financialDerivedMetrics: 'financial_derived_metrics',
+  financialDerivedMetricCalculations: 'financial_derived_metric_calculations',
   jobRuns: 'job_runs',
 } as const
 

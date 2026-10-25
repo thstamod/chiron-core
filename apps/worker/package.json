@@ -11,6 +11,7 @@
     "sync:events": "tsx src/index.ts sync-events",
     "extract:document-text": "tsx src/index.ts extract-document-text",
     "extract:financial-metrics": "tsx src/index.ts extract-financial-metrics",
+    "calculate:financial-derived-metrics": "tsx src/index.ts calculate-financial-derived-metrics",
     "test": "tsx --test src/**/*.test.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -14,6 +14,8 @@ companies
   └── earnings_events
         ├── documents
         ├── financial_metrics
+        ├── financial_derived_metrics
+        ├── financial_derived_metric_calculations
         ├── extraction_runs
         └── predictions ── evaluations
 
@@ -154,6 +156,35 @@ One completion record for each original document, source fingerprint, and determ
 version. It stores the filing's fiscal year and period, the metric count, warnings, and a fingerprint
 of the complete structured result. Keeping this separate from individual values lets a successful
 extraction with a genuinely missing metric remain complete rather than being downloaded forever.
+
+### `financial_derived_metrics`
+
+Standard values calculated from the extracted SEC numbers. The first version calculates:
+
+- year-over-year revenue growth: the percentage change from the same fiscal period one year ago;
+- net margin: net income divided by revenue, expressed as a percentage;
+- year-over-year net-margin change: the difference between the two margins, expressed in
+  percentage points.
+
+For example, a margin moving from `15%` to `20%` improved by `5 percentage points`. It did not
+improve by `5%`; those phrases mean different calculations.
+
+Important fields:
+
+- `calculation_expression` and `calculation_version`: the transparent formula and its version.
+- `input_sha256`: a fingerprint of the complete current- and previous-period input.
+- `input_metrics`: the exact `financial_metrics` row IDs and values used in the formula.
+
+A quarter is compared with the same fiscal quarter one year earlier to reduce misleading seasonal
+comparisons. A full year is compared with the previous full year. These values are descriptive
+financial calculations, not prediction rules.
+
+### `financial_derived_metric_calculations`
+
+One completion record for each event, formula version, and exact input fingerprint. It preserves
+the current and previous source-period manifest, calculated-value count, warnings, and output
+fingerprint. If an amended filing later changes the available source data, the new input fingerprint
+creates a new calculation while the earlier result remains available for auditing.
 
 ### `extraction_runs`
 

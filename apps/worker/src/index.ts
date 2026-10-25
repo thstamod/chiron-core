@@ -40,6 +40,9 @@ import {
 import {
   extractAndStoreFinancialMetrics,
 } from './financial-metrics.js'
+import {
+  calculateAndStoreFinancialDerivedMetrics,
+} from './financial-derived-metrics.js'
 import { financialMetricExtractionVersion } from './xbrl.js'
 import { buildEarningsEventGroups, saveEarningsEventGroups } from './events.js'
 import { runTrackedJob } from './jobs.js'
@@ -240,6 +243,19 @@ async function extractFinancialMetrics(
   }
 }
 
+async function calculateFinancialDerivedMetrics(
+  client: SupabaseClient,
+): Promise<Record<string, unknown>> {
+  const summary = await calculateAndStoreFinancialDerivedMetrics(client)
+
+  console.log(
+    `Financial calculations complete: ${summary.pendingEvents} events processed, `
+    + `${summary.calculatedMetrics} metrics calculated, and ${summary.warnings} warnings`,
+  )
+
+  return { ...summary }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
 
@@ -285,6 +301,13 @@ async function main(): Promise<void> {
         client,
         JobName.financialMetricExtraction,
         () => extractFinancialMetrics(client),
+      )
+      break
+    case WorkerCommand.calculateFinancialDerivedMetrics:
+      await runTrackedJob(
+        client,
+        JobName.financialDerivedMetricCalculation,
+        () => calculateFinancialDerivedMetrics(client),
       )
       break
     default:

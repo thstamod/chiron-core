@@ -382,6 +382,35 @@ before expanding the historical dataset to many thousands of periodic reports.
 - An empty run does not download or parse any SEC document.
 - Results remain correct across database pagination boundaries.
 
+### Query only changed inputs for financial calculations
+
+**Status:** Agreed, not implemented
+
+**Priority:** Scaling improvement after the PoC dataset becomes materially larger
+
+#### Current behavior
+
+The standard financial-calculation job loads the versioned revenue and net-income rows plus existing
+calculation completions, builds each event's exact input fingerprint, and processes only fingerprints
+that are not complete. With the current dataset this is small, and no SEC document is downloaded.
+
+#### Proposed behavior
+
+Move current-period selection, previous-year matching, and pending-input detection into a PostgreSQL
+view or function. Return only events whose selected source metrics produce a new input fingerprint.
+
+#### What this improves
+
+- Avoids transferring all historical source metrics and completion keys on every scheduled run.
+- Keeps the hourly calculation step small when the historical dataset reaches many thousands of
+  events.
+- Preserves recalculation when an amended filing or a new formula version changes the inputs.
+
+#### Implementation trigger
+
+Implement this when measured query volume is no longer negligible or before a large historical
+backfill. The in-memory approach is simpler and appropriate for the current PoC.
+
 ### Add bounded parallel financial extraction
 
 **Status:** Agreed, not implemented
@@ -419,6 +448,66 @@ small.
 - The next run retries only documents without verified completion records.
 - Memory and Supabase request rates remain within measured safe limits.
 - Output is identical to sequential extraction for the same documents and parser version.
+
+### Add a server-side GraphQL API for the live dashboard
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required before the Vue dashboard reads real Supabase data
+
+#### Current behavior
+
+The Vue dashboard reads public demonstration data and has no connection to Supabase. The worker uses
+the Supabase secret key in trusted server-side environments such as GitHub Actions and a local
+terminal. That key must never be included in browser code, a Vite environment variable, or a
+generated frontend bundle.
+
+#### Proposed behavior
+
+Add a small Node.js/TypeScript GraphQL server as `apps/api` in the modular monorepo, or deploy the
+same API through equivalent serverless functions. Vue sends queries to our GraphQL endpoint. Its
+resolvers perform narrowly defined Supabase queries using credentials available only on the server.
+
+Define an application-owned schema for companies, earnings events, source evidence, financial
+values, and calculated comparisons. The schema must not automatically expose the PostgreSQL schema.
+Add mutations later for manual review and corrections, with input validation and authorization.
+Use cursor or bounded page-size pagination for lists, batch related database reads to avoid repeated
+queries, and keep private research fields behind explicitly separate resolvers and access rules.
+
+This is different from connecting Vue directly to Supabase GraphQL. Our Node server controls the
+GraphQL schema, resolver logic, returned fields, and public/private boundary. The Supabase secret
+key remains on that server and is never sent to Vue. REST can still be added for simple operational
+endpoints such as health checks or webhooks when it is a better fit.
+
+#### What this improves
+
+- Keeps the Supabase secret key exclusively on the server.
+- Prevents the browser from selecting arbitrary database tables and columns.
+- Creates one place for validation, pagination, query limits, authorization, and public/private
+  data boundaries.
+- Lets the public core dashboard use a stable API contract while private research logic remains in
+  `chiron-research`.
+- Avoids coupling Vue components directly to the database schema.
+- Lets one event-details query retrieve its company, evidence, financial values, and outcomes.
+
+#### What this does not improve
+
+A GraphQL server is not automatically secure. Every resolver still needs explicit input validation,
+restricted responses, safe error messages, and deployment configuration. Query depth, complexity,
+page size, and execution time need limits so one request cannot create excessive database work.
+User accounts and public internet access are not needed for the local PoC and should not be added
+before they are required.
+
+#### Acceptance checks
+
+- No Supabase secret or server-only environment variable appears in the frontend source or build.
+- Vue receives real data only through the application-owned GraphQL schema.
+- GraphQL lists are paginated and resolvers expose only approved fields.
+- Query depth, complexity, page size, and execution time have explicit limits.
+- Related records are batched so one query does not create one database request per returned row.
+- Database and API errors do not reveal credentials or private research data.
+- Public core endpoints can run without the private research repository.
+- Private predictions, corrections, and research results require explicitly separate access.
 
 ## Nice to have
 
