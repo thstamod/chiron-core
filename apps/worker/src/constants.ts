@@ -49,6 +49,60 @@ export const RuleVersion = {
   eventGrouping: 'sec-event-grouping-v2',
   eventPersistence: 'earnings-event-persistence-v1',
   documentTextExtraction: 'sec-html-text-v3',
+  financialMetricExtraction: 'sec-xbrl-financial-metrics-v1',
+} as const
+
+export const FinancialMetricCode = {
+  revenue: 'revenue',
+  netIncome: 'net_income',
+  earningsPerShareBasic: 'earnings_per_share_basic',
+  earningsPerShareDiluted: 'earnings_per_share_diluted',
+} as const
+
+export const AccountingBasis = {
+  gaap: 'gaap',
+} as const
+
+export const FinancialUnit = {
+  unitedStatesDollar: 'USD',
+  share: 'share',
+  unitedStatesDollarPerShare: 'USD/share',
+} as const
+
+export const XbrlConcept = {
+  revenueFromCustomerContracts: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+  revenues: 'us-gaap:Revenues',
+  salesRevenueNet: 'us-gaap:SalesRevenueNet',
+  netIncomeLoss: 'us-gaap:NetIncomeLoss',
+  profitLoss: 'us-gaap:ProfitLoss',
+  earningsPerShareBasic: 'us-gaap:EarningsPerShareBasic',
+  earningsPerShareDiluted: 'us-gaap:EarningsPerShareDiluted',
+  documentFiscalYear: 'dei:DocumentFiscalYearFocus',
+  documentFiscalPeriod: 'dei:DocumentFiscalPeriodFocus',
+} as const
+
+export const XbrlFiscalPeriod = {
+  firstQuarter: 'Q1',
+  secondQuarter: 'Q2',
+  thirdQuarter: 'Q3',
+  fourthQuarter: 'Q4',
+  fullYear: 'FY',
+} as const
+
+export const XbrlSelector = {
+  context: 'xbrli\\:context',
+  startDate: 'xbrli\\:startdate',
+  endDate: 'xbrli\\:enddate',
+  explicitMember: 'xbrldi\\:explicitmember',
+  typedMember: 'xbrldi\\:typedmember',
+  unit: 'xbrli\\:unit',
+  measure: 'xbrli\\:measure',
+  unitNumerator: 'xbrli\\:unitnumerator',
+  unitDenominator: 'xbrli\\:unitdenominator',
+  numericFact: 'ix\\:nonfraction',
+  nonNumericFact: 'ix\\:nonnumeric',
+  hiddenFactContainer: 'ix\\:hidden',
+  excludedContent: 'ix\\:exclude',
 } as const
 
 export const HtmlSelector = {
@@ -84,6 +138,7 @@ export const WorkerCommand = {
   syncDocuments: 'sync-documents',
   syncEvents: 'sync-events',
   extractDocumentText: 'extract-document-text',
+  extractFinancialMetrics: 'extract-financial-metrics',
 } as const
 
 export const JobName = {
@@ -91,6 +146,7 @@ export const JobName = {
   documentsSync: 'sec-documents-sync',
   eventsSync: 'earnings-events-sync',
   documentTextExtraction: 'document-text-extraction',
+  financialMetricExtraction: 'financial-metric-extraction',
 } as const
 
 export const JobStatus = {
@@ -113,6 +169,8 @@ export const DatabaseTable = {
   earningsEvents: 'earnings_events',
   documents: 'documents',
   documentTextVersions: 'document_text_versions',
+  financialMetrics: 'financial_metrics',
+  financialMetricExtractions: 'financial_metric_extractions',
   jobRuns: 'job_runs',
 } as const
 

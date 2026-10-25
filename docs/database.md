@@ -10,6 +10,7 @@ file.
 ```text
 companies
   ├── sec_filings ── documents ── document_text_versions
+  │                           └── financial_metric_extractions
   └── earnings_events
         ├── documents
         ├── financial_metrics
@@ -132,9 +133,27 @@ Important fields:
 - `accounting_basis`: whether the value follows GAAP, is non-GAAP, or is still unknown.
 - `period_start` and `period_end`: the period measured by the number.
 - `source_document_id`: the exact source supporting the value.
+- `extraction_version` and `source_content_sha256`: the parser version and original-file
+  fingerprint used to produce the row.
+- `xbrl_concept` and `xbrl_context_id`: the SEC/XBRL identifiers used to choose the value.
+- `source_text`: the exact text content of the selected fact before scale normalization.
+- `source_metadata`: the XBRL unit, scale, precision, sign, and dimension count used for auditing.
 
 **GAAP** means the standard US accounting rules. **Non-GAAP** is a company-adjusted measure
 that may exclude selected costs. The two should never be treated as interchangeable.
+
+The first deterministic rule stores current-period GAAP revenue, net income, basic earnings per
+share, and diluted earnings per share. For a quarterly report it chooses the shortest
+whole-company period ending on the report date, excluding segment-level facts. For an annual
+report it chooses the full-year period. These selection rules are implementation assumptions that
+must be revalidated when the company set expands.
+
+### `financial_metric_extractions`
+
+One completion record for each original document, source fingerprint, and deterministic parser
+version. It stores the filing's fiscal year and period, the metric count, warnings, and a fingerprint
+of the complete structured result. Keeping this separate from individual values lets a successful
+extraction with a genuinely missing metric remain complete rather than being downloaded forever.
 
 ### `extraction_runs`
 

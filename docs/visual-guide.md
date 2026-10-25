@@ -103,10 +103,12 @@ flowchart TD
     D -->|sync-documents| DOC[syncDocuments]
     D -->|sync-events| E[syncEvents]
     D -->|extract-document-text| T[extractDocumentText]
+    D -->|extract-financial-metrics| X[extractFinancialMetrics]
     F --> J[jobs.ts: runTrackedJob]
     DOC --> J
     E --> J
     T --> J
+    X --> J
     J --> START[Record running in job_runs]
     START --> EXEC[Execute selected job]
     EXEC --> OK[Record succeeded and counts]
@@ -115,8 +117,9 @@ flowchart TD
 
 For example, `pnpm worker:sync-filings` at the repository root invokes the worker's `sync:filings` script, which runs `tsx src/index.ts sync-filings`. `tsx` executes TypeScript; `main()` reads `sync-filings` from the command-line arguments.
 
-The GitHub workflow runs filings, documents, events, then readable-text extraction. A failed step
-stops the later steps. Health checks are not recorded through `runTrackedJob()`.
+The GitHub workflow runs filings, documents, events, readable-text extraction, then financial-metric
+extraction. A failed step stops the later steps. Health checks are not recorded through
+`runTrackedJob()`.
 
 The cron line requests hourly runs on weekdays in UTC. Actual execution can be delayed or skipped by GitHub. This is collection scheduling, not a precise prediction clock.
 
@@ -258,7 +261,33 @@ recoverable because completed document/version/fingerprint combinations are skip
 Storage and database rows are both verified when concurrent workers reach the same deterministic
 artifact.
 
-## 9. How the database records connect
+## 9. Job five: extract basic inline-XBRL values
+
+```mermaid
+flowchart TD
+    A[index.ts: extractFinancialMetrics] --> B[Load periodic reports missing this parser version]
+    B --> C[Download the immutable archived HTML]
+    C --> D{Original fingerprint matches?}
+    D -->|No| FAIL[Fail visibly]
+    D -->|Yes| E[xbrl.ts: read contexts, units and numeric facts]
+    E --> F[Choose the current whole-company period]
+    F --> G[Normalize scale and sign as exact decimal text]
+    G --> H[Insert and verify financial_metrics]
+    H --> I[Save fiscal identity on the event]
+    I --> J[Insert and verify financial_metric_extractions completion]
+```
+
+For a `10-Q`, the parser selects the shortest whole-company duration ending on the report date, so
+the three-month quarter is not confused with the six- or nine-month year-to-date value. For a
+`10-K`, it selects the full-year duration. XBRL dimensions identify facts for a segment, product, or
+geography; version one excludes those facts and selects the consolidated company value.
+
+The visible value may be `64,601` while its XBRL scale is `6`. The normalized value is therefore
+`64601000000` USD. Both forms are retained: the normalized number supports calculations, while the
+source fact text and XBRL attributes support review. A separate completion row makes partial
+database failures recoverable and records missing-metric warnings without retrying forever.
+
+## 10. How the database records connect
 
 ```mermaid
 erDiagram
@@ -268,6 +297,8 @@ erDiagram
     sec_filings o|--o{ documents : contains
     earnings_events o|--o{ documents : gathers
     documents ||--o{ document_text_versions : derives
+    documents ||--o{ financial_metric_extractions : completes
+    earnings_events ||--o{ financial_metrics : measures
     earnings_events o|--o{ earnings_events : previous_event
 ```
 
@@ -281,14 +312,15 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 | `document_text_versions` | Versioned readable-text artifacts derived from original documents. |
 | `earnings_events` | Related filings grouped by company and reported period. |
 | `job_runs` | Operational history of worker jobs. |
-| `financial_metrics` | Created for future extraction of numbers such as revenue. |
+| `financial_metrics` | Versioned GAAP values with exact inline-XBRL evidence. |
+| `financial_metric_extractions` | Completion and reproducibility record for each deterministic XBRL extraction. |
 | `extraction_runs` | Created for future LLM outputs and their input evidence. |
 | `predictions` | Created for future research scores and snapshots. Update/delete protection is still planned. |
 | `evaluations` | Created for future comparisons of stock and benchmark returns. |
 
 Database migrations are applied separately. The GitHub collection workflow does not apply SQL migrations.
 
-## 10. Configuration and database helper functions
+## 11. Configuration and database helper functions
 
 ```mermaid
 flowchart LR
@@ -313,6 +345,7 @@ The local `.env` is ignored by Git. GitHub supplies environment variables separa
 | `getFilingsForDocumentSync()` | Read filing records with company information, using pagination. Also used by event sync. |
 | `getStoredDocumentSourceUrls()` | Read recorded document URLs, using pagination. |
 | `getPendingDocumentsForTextExtraction()` | Read documents missing the requested text-extraction version. |
+| `getPendingDocumentsForFinancialMetricExtraction()` | Read periodic reports missing the requested XBRL-parser version. |
 | `updateFilingClassification()` | Save the versioned decision about relevance to earnings. |
 | `updateExhibitDiscovery()` | Save which attachments were found and when the index was checked. |
 | `createJobRun()` / `finishJobRun()` | Record the lifecycle and results of a job. |
@@ -320,7 +353,7 @@ The local `.env` is ignored by Git. GitHub supplies environment variables separa
 
 `pagination.ts: fetchAllPages()` requests rows in batches of 500, collecting them until the last batch. Callers provide stable ordering. `jobs.ts: runTrackedJob()` wraps a job with database history and propagates failures to the command-line process.
 
-## 11. Vue: the part familiar to a frontend engineer
+## 12. Vue: the part familiar to a frontend engineer
 
 ```mermaid
 flowchart TD
@@ -337,7 +370,7 @@ flowchart TD
 
 `scoreLabel()` formats positive numbers with a `+`. The example records supply scores, guidance and results. The demo's displayed processing stages illustrate the intended product; they are not evidence that extraction or prediction jobs are running. Some navigation links and buttons are placeholders.
 
-## 12. The future evaluation pipeline
+## 13. The future evaluation pipeline
 
 Everything below is planned; these jobs do not exist yet.
 
@@ -357,7 +390,7 @@ The **analysis cutoff** is the latest time from which information is allowed int
 
 For example, an analysis completed after market close cannot claim the earlier closing price as an available entry. Historical grouping must also filter each source by its availability time; a later report or amendment cannot be used in an earlier prediction.
 
-## 13. Suggested reading path
+## 14. Suggested reading path
 
 1. Start with sections 1–3 to understand the purpose and locations.
 2. Read `index.ts: main()` alongside section 4.

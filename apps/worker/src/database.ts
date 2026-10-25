@@ -10,6 +10,8 @@ import {
   DatabaseTable,
   type FinishedJobStatus,
   JobStatus,
+  periodicSecForms,
+  SecDocumentType,
   WorkerLimit,
 } from './constants.js'
 import { fetchAllPages } from './pagination.js'
@@ -58,8 +60,37 @@ interface DocumentTextVersionRow {
   source_content_sha256: string
 }
 
+interface FinancialMetricDocumentFilingRow {
+  form_type: string
+  report_date: string | null
+  companies: { ticker: string } | { ticker: string }[]
+}
+
+interface FinancialMetricDocumentRow {
+  id: string
+  earnings_event_id: string | null
+  storage_path: string
+  content_sha256: string
+  sec_filings: FinancialMetricDocumentFilingRow | FinancialMetricDocumentFilingRow[]
+}
+
+interface FinancialMetricExtractionRow {
+  source_document_id: string
+  source_content_sha256: string
+}
+
 export interface DocumentTextSource {
   id: string
+  storagePath: string
+  contentSha256: string
+}
+
+export interface FinancialMetricDocumentSource {
+  id: string
+  earningsEventId: string
+  ticker: string
+  formType: string
+  reportDate: string
   storagePath: string
   contentSha256: string
 }
@@ -307,6 +338,81 @@ export async function getPendingDocumentsForTextExtraction(
       storagePath: document.storage_path,
       contentSha256: document.content_sha256,
     }))
+}
+
+export async function getPendingDocumentsForFinancialMetricExtraction(
+  client: SupabaseClient,
+  extractionVersion: string,
+): Promise<FinancialMetricDocumentSource[]> {
+  const [documents, completedExtractions] = await Promise.all([
+    fetchAllPages<FinancialMetricDocumentRow>(
+      async (from, to) => {
+        const { data, error } = await client
+          .from(DatabaseTable.documents)
+          .select(`
+            id,
+            earnings_event_id,
+            storage_path,
+            content_sha256,
+            sec_filings!inner(form_type,report_date,companies!inner(ticker))
+          `)
+          .eq('document_type', SecDocumentType.primary)
+          .not('earnings_event_id', 'is', null)
+          .in('sec_filings.form_type', [...periodicSecForms])
+          .not('sec_filings.report_date', 'is', null)
+          .order('id')
+          .range(from, to)
+
+        return { data: data as unknown as FinancialMetricDocumentRow[] | null, error }
+      },
+      'Could not load documents for financial metric extraction',
+    ),
+    fetchAllPages<FinancialMetricExtractionRow>(
+      async (from, to) => {
+        const { data, error } = await client
+          .from(DatabaseTable.financialMetricExtractions)
+          .select('source_document_id,source_content_sha256')
+          .eq('extraction_version', extractionVersion)
+          .order('source_document_id')
+          .order('source_content_sha256')
+          .range(from, to)
+
+        return { data, error }
+      },
+      'Could not load completed financial metric extractions',
+    ),
+  ])
+
+  const completedExtractionKeys = new Set(
+    completedExtractions.map(
+      (extraction) => `${extraction.source_document_id}:${extraction.source_content_sha256}`,
+    ),
+  )
+
+  return documents.flatMap((document) => {
+    const extractionKey = `${document.id}:${document.content_sha256}`
+    if (completedExtractionKeys.has(extractionKey) || !document.earnings_event_id) return []
+
+    const filing = Array.isArray(document.sec_filings)
+      ? document.sec_filings[0]
+      : document.sec_filings
+    if (!filing?.report_date) return []
+
+    const company = Array.isArray(filing.companies)
+      ? filing.companies[0]
+      : filing.companies
+    if (!company) return []
+
+    return [{
+      id: document.id,
+      earningsEventId: document.earnings_event_id,
+      ticker: company.ticker,
+      formType: filing.form_type,
+      reportDate: filing.report_date,
+      storagePath: document.storage_path,
+      contentSha256: document.content_sha256,
+    }]
+  })
 }
 
 export async function updateExhibitDiscovery(

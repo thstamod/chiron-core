@@ -346,6 +346,80 @@ later without losing data.
 - Retry exhaustion fails the tracked job with a clear error.
 - Increasing the watchlist does not create concurrent SEC request bursts.
 
+### Query only financial documents that still need extraction
+
+**Status:** Agreed, not implemented
+
+**Priority:** Scaling improvement after the PoC dataset becomes materially larger
+
+#### Current behavior
+
+The financial-metric job reads the stored periodic-document list and the completed-extraction list,
+then compares them in worker memory. Only incomplete documents are downloaded and parsed. With the
+current 41 periodic reports, this is a small operation and is suitable for the free-tier PoC.
+
+#### Proposed behavior
+
+Move the comparison into PostgreSQL using a view, database function, or `not exists` query. Return
+only documents that do not have a completion record for the requested extraction version and source
+fingerprint.
+
+#### What this improves
+
+- Avoids transferring the complete document and completion indexes on every scheduled run.
+- Keeps an empty hourly run small when historical storage grows to thousands of reports.
+- Preserves the existing retry behavior for partial failures and new parser versions.
+
+#### Implementation trigger
+
+Implement this when query measurements show that listing all records is no longer negligible, or
+before expanding the historical dataset to many thousands of periodic reports.
+
+#### Acceptance checks
+
+- A completed document/version/fingerprint combination is not returned.
+- A new document, changed source fingerprint, or new extraction version is returned.
+- An empty run does not download or parse any SEC document.
+- Results remain correct across database pagination boundaries.
+
+### Add bounded parallel financial extraction
+
+**Status:** Agreed, not implemented
+
+**Priority:** Scaling improvement after sequential processing becomes measurably slow
+
+#### Current behavior
+
+The worker processes pending periodic reports one at a time. This keeps memory, Supabase Storage
+traffic, logs, and failure recovery simple. The first 41-document backfill completed within the
+GitHub workflow limit, and normal scheduled runs usually process zero or only a few new reports.
+
+#### Proposed behavior
+
+Process a small configurable number of independent documents simultaneously, initially three to
+five. Keep the limit shared within one worker, preserve per-document fingerprint and database
+verification, and never start unbounded requests with `Promise.all()` over the full pending list.
+
+#### What this improves
+
+- Reduces backfill and new-version extraction time for a much larger watchlist.
+- Uses available network and CPU capacity without creating an uncontrolled Storage request burst.
+- Keeps one document failure isolated and recoverable through its missing completion record.
+
+#### Implementation trigger
+
+Implement this only when measured extraction runtime approaches the workflow time limit or delays
+processing for the expanded watchlist. Sequential processing remains preferable while its runtime is
+small.
+
+#### Acceptance checks
+
+- Active document processing never exceeds the configured concurrency limit.
+- A failed document does not corrupt or duplicate successful document results.
+- The next run retries only documents without verified completion records.
+- Memory and Supabase request rates remain within measured safe limits.
+- Output is identical to sequential extraction for the same documents and parser version.
+
 ## Nice to have
 
 ### Strengthen document synchronization and extraction reuse
@@ -506,6 +580,47 @@ does not belong in the first earnings-only score.
 - The dashboard clearly labels later news as context rather than as part of the original signal.
 - Duplicate announcements from several sources can be linked without counting them as several
   independent events.
+
+## Far future
+
+### Make fiscal-identity updates atomic for concurrent workers
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required only before multiple financial-extraction workers can process the same event
+
+#### Current behavior
+
+The worker reads an earnings event's fiscal year and quarter, checks for conflicts, and fills fields
+that are still empty. The GitHub workflow's concurrency group prevents overlapping scheduled runs,
+so the current PoC has one writer and is safe.
+
+#### Proposed behavior
+
+Perform the empty-field check and update as one PostgreSQL operation. The update must set a fiscal
+value only while the stored column is still `null`. If another worker fills it first, reload the row
+and verify that both workers derived the same fiscal identity. A conflicting value must fail rather
+than overwrite either result.
+
+#### What this improves
+
+- Prevents a race in which two workers both read empty fields and the later write replaces the
+  earlier write.
+- Makes horizontal worker scaling safe without relying only on GitHub workflow concurrency.
+- Preserves conflict detection when amendments or grouping errors point different documents at the
+  same event.
+
+#### Implementation trigger
+
+Implement this before running multiple extraction workers, processing the same database from more
+than one scheduler, or moving toward commercial infrastructure.
+
+#### Acceptance checks
+
+- Two workers proposing the same fiscal identity both finish with one consistent stored value.
+- A worker proposing a conflicting identity cannot overwrite the existing value.
+- A simulated concurrent update is detected and verified.
+- The current single-worker path continues to fill previously empty fiscal fields.
 
 ## Adding another improvement
 

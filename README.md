@@ -18,7 +18,9 @@ Phase 1 provides:
 SEC metadata ingestion is active. The worker can classify earnings-related filings with a
 versioned transparent rule, preserve primary documents and Exhibit 99.1 earnings releases,
 group related filings into earnings events, and create versioned readable-text copies for later
-extraction. LLM extraction, stock prices, and predictions are not active yet.
+extraction. It also extracts four basic GAAP values from inline XBRL in periodic reports: revenue,
+net income, basic earnings per share, and diluted earnings per share. LLM extraction, stock prices,
+and predictions are not active yet.
 
 ## Requirements
 
@@ -63,6 +65,7 @@ pnpm worker:sync-filings
 pnpm worker:sync-documents
 pnpm worker:sync-events
 pnpm worker:extract-document-text
+pnpm worker:extract-financial-metrics
 ```
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
@@ -79,6 +82,12 @@ The text-extraction command reads the archived HTML from private Storage and cre
 readable `.txt` artifact. The original file is never changed. Its database row records both the
 original file fingerprint and the extraction-rule version so the exact future LLM input can be
 reproduced.
+
+The financial-metric command reads inline XBRL embedded in archived `10-Q` and `10-K` HTML. It
+selects whole-company values rather than business-segment values, distinguishes a quarter from a
+year-to-date total, applies the XBRL scale without floating-point arithmetic, and stores the exact
+source fact text and XBRL context used for each value. A `10-K` produces full-year values; it
+does not pretend those values describe only the fourth quarter.
 
 Every scheduled command records its start time, completion status, and result counts in
 `job_runs`, including runs that correctly find no new filings.

@@ -20,6 +20,7 @@ import {
   createDatabaseClient,
   getActiveCompanies,
   getPendingDocumentsForTextExtraction,
+  getPendingDocumentsForFinancialMetricExtraction,
   getFilingsForDocumentSync,
   getStoredDocumentSourceUrls,
   saveFilingCandidates,
@@ -36,6 +37,10 @@ import {
   documentTextExtractionVersion,
   extractAndStoreDocumentText,
 } from './document-text.js'
+import {
+  extractAndStoreFinancialMetrics,
+} from './financial-metrics.js'
+import { financialMetricExtractionVersion } from './xbrl.js'
 import { buildEarningsEventGroups, saveEarningsEventGroups } from './events.js'
 import { runTrackedJob } from './jobs.js'
 import {
@@ -198,6 +203,43 @@ async function extractDocumentText(client: SupabaseClient): Promise<Record<strin
   }
 }
 
+async function extractFinancialMetrics(
+  client: SupabaseClient,
+): Promise<Record<string, unknown>> {
+  const pendingDocuments = await getPendingDocumentsForFinancialMetricExtraction(
+    client,
+    financialMetricExtractionVersion,
+  )
+  let extractedMetrics = 0
+  let extractionWarnings = 0
+
+  console.log(
+    `Checking ${pendingDocuments.length} periodic reports with ${financialMetricExtractionVersion}`,
+  )
+
+  for (const document of pendingDocuments) {
+    const extraction = await extractAndStoreFinancialMetrics(client, document)
+    extractedMetrics += extraction.metrics.length
+    extractionWarnings += extraction.warnings.length
+    console.log(
+      `${document.ticker}: extracted ${extraction.metrics.length} metrics from `
+      + `${document.formType} for ${document.reportDate}`,
+    )
+  }
+
+  console.log(
+    `Financial metric extraction complete: ${extractedMetrics} metrics and `
+    + `${extractionWarnings} warnings`,
+  )
+
+  return {
+    pendingDocuments: pendingDocuments.length,
+    extractedMetrics,
+    extractionWarnings,
+    extractionVersion: financialMetricExtractionVersion,
+  }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
 
@@ -236,6 +278,13 @@ async function main(): Promise<void> {
         client,
         JobName.documentTextExtraction,
         () => extractDocumentText(client),
+      )
+      break
+    case WorkerCommand.extractFinancialMetrics:
+      await runTrackedJob(
+        client,
+        JobName.financialMetricExtraction,
+        () => extractFinancialMetrics(client),
       )
       break
     default:
