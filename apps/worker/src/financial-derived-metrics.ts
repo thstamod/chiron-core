@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateContentSha256 } from './content-hash.js'
+import { canonicalJson } from './canonical-json.js'
 import {
   DatabaseTable,
   FinancialCalculationExpression,
@@ -124,17 +125,6 @@ const comparableFiscalPeriods = new Set<string>([
   XbrlFiscalPeriod.thirdQuarter,
   XbrlFiscalPeriod.fullYear,
 ])
-
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalJson(entryValue)}`)
-    return `{${entries.join(',')}}`
-  }
-  return JSON.stringify(value)
-}
 
 function sha256ForJson(value: unknown): string {
   return calculateContentSha256(new TextEncoder().encode(canonicalJson(value)))

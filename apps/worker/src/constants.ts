@@ -51,6 +51,7 @@ export const RuleVersion = {
   documentTextExtraction: 'sec-html-text-v3',
   financialMetricExtraction: 'sec-xbrl-financial-metrics-v1',
   financialDerivedMetrics: 'financial-derived-metrics-v1',
+  qualitativeInputSelection: 'earnings-release-input-v1',
 } as const
 
 export const FinancialMetricCode = {

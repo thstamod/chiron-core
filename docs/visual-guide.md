@@ -71,6 +71,8 @@ flowchart TD
 | `apps/worker/src/documents.ts` | Finds earnings attachments, downloads files and stores them. |
 | `apps/worker/src/document-text.ts` | Converts archived SEC HTML into versioned readable text. |
 | `apps/worker/src/financial-derived-metrics.ts` | Calculates versioned standard comparisons from extracted SEC values. |
+| `apps/worker/src/qualitative-extraction.ts` | Prepares reproducible LLM inputs and validates exact source evidence without calling a provider. |
+| `apps/worker/src/canonical-json.ts` | Serializes JSON in stable key order before reproducibility fingerprints are calculated. |
 | `apps/worker/src/content-hash.ts` | Creates SHA-256 fingerprints for original and derived files. |
 | `apps/worker/src/storage.ts` | Persists immutable files and safely handles concurrent uploads. |
 | `apps/worker/src/events.ts` | Groups related filings into earnings events. |
@@ -83,7 +85,8 @@ flowchart TD
 | `apps/web/src/demo-data.ts` | Example events for the public demonstration. |
 | `apps/web/src/styles.css` | Dashboard appearance and layout. |
 | `apps/web/vite.config.ts` | Configures Vite, the frontend development/build tool. |
-| `packages/shared/src/index.ts` | Describes data shapes used across packages. |
+| `packages/shared/src/index.ts` | Exports data shapes used across packages. |
+| `packages/shared/src/qualitative-extraction.ts` | Defines the runtime-validated qualitative JSON contract shared by the worker, future API, and UI. |
 | `supabase/migrations/*.sql` | Creates and changes database tables, relationships and storage settings. |
 | Each package's `package.json` | Its own dependencies and commands. |
 | Each package's `tsconfig.json` | TypeScript settings specific to that package. |
@@ -402,6 +405,10 @@ flowchart TD
 ## 14. The future evaluation pipeline
 
 Everything below is planned; these jobs do not exist yet.
+
+The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
+validation are implemented foundations. The OpenAI adapter, prompt, database persistence, paid
+extraction runs, scoring, and evaluation jobs remain planned.
 
 ```mermaid
 flowchart TD

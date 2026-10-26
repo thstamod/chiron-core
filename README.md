@@ -21,7 +21,8 @@ group related filings into earnings events, and create versioned readable-text c
 extraction. It also extracts four basic GAAP values from inline XBRL in periodic reports: revenue,
 net income, basic earnings per share, and diluted earnings per share. It then calculates standard
 year-over-year revenue growth, net margin, and year-over-year margin change when comparable data is
-available. LLM extraction, stock prices, and predictions are not active yet.
+available. A public qualitative-output schema and exact source-evidence validator now define the
+future LLM contract, but no LLM API calls, stock prices, or predictions are active yet.
 
 ## Requirements
 

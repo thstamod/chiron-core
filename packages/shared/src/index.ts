@@ -1,4 +1,7 @@
-export type GuidanceChange = 'raised' | 'maintained' | 'lowered' | 'unclear'
+import type { GuidanceChange } from './qualitative-extraction.js'
+
+export * from './qualitative-extraction.js'
+
 export type EventStatus = 'tracking' | 'complete'
 
 export interface DemoEarningsEvent {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FinancialMetricDocumentSource } from './database.js'
 import { calculateContentSha256 } from './content-hash.js'
+import { canonicalJson } from './canonical-json.js'
 import { DatabaseTable, StorageConfig, XbrlFiscalPeriod } from './constants.js'
 import { decodeUtf8Text } from './document-text.js'
 import {
@@ -43,17 +44,6 @@ interface FinancialMetricExtractionRecord {
 interface EarningsEventFiscalIdentity {
   fiscal_year: number | null
   fiscal_quarter: number | null
-}
-
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalJson(entryValue)}`)
-    return `{${entries.join(',')}}`
-  }
-  return JSON.stringify(value)
 }
 
 function metricRecord(
