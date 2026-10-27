@@ -54,6 +54,38 @@ export const RuleVersion = {
   qualitativeInputSelection: 'earnings-release-input-v1',
 } as const
 
+export const PromptVersion = {
+  baselineQualitativeExtraction: 'baseline-v1',
+} as const
+
+export const QualitativeExtractionLimit = {
+  maximumOutputTokens: 2_000,
+} as const
+
+export const QualitativeProviderStatus = {
+  completed: 'completed',
+  refused: 'refused',
+  incomplete: 'incomplete',
+  requestFailed: 'request_failed',
+  invalidOutput: 'invalid_output',
+} as const
+
+export const LanguageModelProvider = {
+  openAi: 'openai',
+} as const
+
+export const OpenAIConfig = {
+  qualitativeResponseFormatName: 'chiron_qualitative_earnings',
+  maximumRetries: 0,
+  requestTimeoutMilliseconds: 180_000,
+  reasoningEffort: 'low',
+} as const
+
+export const OpenAIRetryPolicy = {
+  retryableHttpStatuses: new Set([408, 409]),
+  retryableErrorCodes: new Set(['rate_limit_exceeded', 'slow_down']),
+} as const
+
 export const FinancialMetricCode = {
   revenue: 'revenue',
   netIncome: 'net_income',
@@ -162,6 +194,7 @@ export const WorkerCommand = {
   extractDocumentText: 'extract-document-text',
   extractFinancialMetrics: 'extract-financial-metrics',
   calculateFinancialDerivedMetrics: 'calculate-financial-derived-metrics',
+  previewQualitativeExtraction: 'preview-qualitative',
 } as const
 
 export const JobName = {
@@ -197,6 +230,7 @@ export const DatabaseTable = {
   financialMetricExtractions: 'financial_metric_extractions',
   financialDerivedMetrics: 'financial_derived_metrics',
   financialDerivedMetricCalculations: 'financial_derived_metric_calculations',
+  extractionRuns: 'extraction_runs',
   jobRuns: 'job_runs',
 } as const
 
@@ -246,6 +280,8 @@ export const EnvironmentVariable = {
   supabaseSecretKey: 'SUPABASE_SECRET_KEY',
   secUserAgent: 'SEC_USER_AGENT',
   secLookbackDays: 'SEC_LOOKBACK_DAYS',
+  openAiApiKey: 'OPENAI_API_KEY',
+  openAiModel: 'OPENAI_MODEL',
 } as const
 
 export const defaultSecLookbackDays = 730

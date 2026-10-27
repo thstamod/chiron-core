@@ -18,6 +18,11 @@ export interface FilingSyncConfig extends SecRequestConfig {
   secLookbackDays: number
 }
 
+export interface OpenAILanguageModelConfig {
+  apiKey: string
+  model: string
+}
+
 export function loadDatabaseConfig(): DatabaseConfig {
   const missing = requiredDatabaseKeys.filter((key) => !process.env[key]?.trim())
 
@@ -57,4 +62,17 @@ export function loadFilingSyncConfig(): FilingSyncConfig {
     ...secRequestConfig,
     secLookbackDays: lookback,
   }
+}
+
+export function loadOpenAILanguageModelConfig(): OpenAILanguageModelConfig {
+  const apiKey = process.env[EnvironmentVariable.openAiApiKey]?.trim()
+  const model = process.env[EnvironmentVariable.openAiModel]?.trim()
+  if (!apiKey || !model) {
+    const missing: string[] = []
+    if (!apiKey) missing.push(EnvironmentVariable.openAiApiKey)
+    if (!model) missing.push(EnvironmentVariable.openAiModel)
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  }
+
+  return { apiKey, model }
 }

@@ -565,6 +565,38 @@ that storage is a problem before measurements show that it is.
 - A new prompt or model version creates a new extraction without overwriting the previous result.
 - Every prediction still points to the exact original documents and extraction versions it used.
 
+### Retain completed LLM extractions while cleaning up old failed attempts
+
+**Status:** Agreed, not implemented
+
+**Priority:** Nice to have after real extraction volume is measured
+
+#### Current behavior
+
+Database triggers prevent updates and deletes for every `extraction_runs` row. This gives the first
+PoC a simple, honest audit history, but it also retains unsuccessful technical attempts forever.
+
+#### Proposed behavior
+
+Keep completed extraction records permanent when they support research, corrections, or
+predictions. Define a measured retention period for old failed attempts such as temporary network
+errors, refusals, and incomplete responses. Preserve any aggregate usage and cost measurements
+needed before removing eligible failures. Cleanup must be an explicit, logged operation rather than
+an automatic side effect of a normal extraction run.
+
+#### What this improves
+
+- Prevents repeated technical failures from becoming permanent database clutter.
+- Preserves the immutable history of completed research outputs.
+- Keeps token-cost and reliability analysis available for the period where it is useful.
+
+#### Acceptance checks
+
+- Completed extractions cannot be updated or deleted by the application.
+- Failed attempts are deleted only after the documented retention period.
+- Cleanup records how many rows were removed and which cutoff was used.
+- A failed-attempt cleanup cannot delete an extraction referenced by a prediction or correction.
+
 ### Detect SEC HTML changes and degraded text extraction
 
 **Status:** Agreed, not implemented

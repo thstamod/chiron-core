@@ -51,6 +51,7 @@ import {
   earningsClassificationRuleVersion,
   fetchRecentFilings,
 } from './sec.js'
+import { previewQualitativeExtraction } from './qualitative-preview.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -310,6 +311,22 @@ async function main(): Promise<void> {
         () => calculateFinancialDerivedMetrics(client),
       )
       break
+    case WorkerCommand.previewQualitativeExtraction: {
+      const earningsEventId = process.argv
+        .slice(3)
+        .find((argument) => argument !== '--')
+        ?.trim()
+      if (!earningsEventId) {
+        throw new Error('preview-qualitative requires an earnings event ID')
+      }
+      const preview = await previewQualitativeExtraction(
+        client,
+        earningsEventId,
+        new Date().toISOString(),
+      )
+      console.log(JSON.stringify(preview, null, 2))
+      break
+    }
     default:
       throw new Error(`Unknown worker command: ${command}`)
   }

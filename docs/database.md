@@ -188,17 +188,23 @@ creates a new calculation while the earlier result remains available for auditin
 
 ### `extraction_runs`
 
-One immutable-style record of an LLM extraction attempt. This will be used when qualitative
-extraction is introduced.
+One append-only record for every LLM extraction attempt, including unsuccessful requests. Database
+triggers reject updates and deletes so an earlier result cannot be silently rewritten.
 
 Important fields:
 
 - `cutoff_at`: the latest information the extraction was allowed to use.
-- `schema_version`, `prompt_version`, and `model_name`: the exact extraction setup.
+- `schema_version`, `prompt_version`, `input_selection_version`, and `input_sha256`: the exact
+  input-selection and extraction setup.
+- `provider_name`, `provider_request_id`, `model_name`, and `resolved_model_name`: which provider
+  and model handled the request.
 - `input_manifest`: the source documents supplied to the model.
-- `output`: the structured JSON produced by the model.
-- `output_sha256`: a fingerprint of that output.
-- `validation_status`: whether the output passed structural validation or needs review.
+- `provider_status`, `failure_reason`, and `retryable`: whether the request completed and why it did
+  not when unsuccessful. `retryable` is classification metadata; it does not trigger another call.
+- `started_at`, `finished_at`, `duration_milliseconds`, and `token_usage`: cost and latency evidence.
+- `output` and `output_sha256`: the structured JSON and its fingerprint when the provider completed.
+- `validation_status`, `located_evidence`, and `validation_errors`: whether every claim passed
+  validation, where each exact quote appeared, and any validation problem that requires review.
 
 ### `predictions`
 

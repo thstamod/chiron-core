@@ -15,6 +15,7 @@ export interface QualitativeSourceDocument {
   role: QualitativeDocumentRole
   documentType: string
   publishedAt: string
+  firstSeenAt: string
   sourceContentSha256: string
   textExtractionVersion: string
   textContentSha256: string
@@ -26,6 +27,7 @@ interface QualitativeInputDocumentManifest {
   role: QualitativeDocumentRole
   documentType: string
   publishedAt: string
+  firstSeenAt: string
   sourceContentSha256: string
   textExtractionVersion: string
   textContentSha256: string
@@ -72,6 +74,7 @@ function inputDocumentManifest(
     role: document.role,
     documentType: document.documentType,
     publishedAt: document.publishedAt,
+    firstSeenAt: document.firstSeenAt,
     sourceContentSha256: document.sourceContentSha256,
     textExtractionVersion: document.textExtractionVersion,
     textContentSha256: document.textContentSha256,
@@ -121,8 +124,18 @@ export function prepareQualitativeExtractionInput(
       document.publishedAt,
       `Document ${document.documentId} publication time`,
     )
+    const documentFirstSeenTimestamp = validTimestamp(
+      document.firstSeenAt,
+      `Document ${document.documentId} first-seen time`,
+    )
     if (documentPublishedTimestamp > cutoffTimestamp) {
       throw new Error(`Document ${document.documentId} was published after the analysis cutoff`)
+    }
+    if (documentFirstSeenTimestamp > cutoffTimestamp) {
+      throw new Error(`Document ${document.documentId} was first seen after the analysis cutoff`)
+    }
+    if (documentFirstSeenTimestamp < documentPublishedTimestamp) {
+      throw new Error(`Document ${document.documentId} was first seen before it was published`)
     }
   }
 
@@ -136,6 +149,7 @@ export function prepareQualitativeExtractionInput(
   const documents = sourceDocuments.map((document) => ({
     ...document,
     publishedAt: new Date(document.publishedAt).toISOString(),
+    firstSeenAt: new Date(document.firstSeenAt).toISOString(),
   })).sort((left, right) => {
     const roleDifference = documentRoleOrder(left.role) - documentRoleOrder(right.role)
     return roleDifference || left.documentId.localeCompare(right.documentId)

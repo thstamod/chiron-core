@@ -21,8 +21,10 @@ group related filings into earnings events, and create versioned readable-text c
 extraction. It also extracts four basic GAAP values from inline XBRL in periodic reports: revenue,
 net income, basic earnings per share, and diluted earnings per share. It then calculates standard
 year-over-year revenue growth, net margin, and year-over-year margin change when comparable data is
-available. A public qualitative-output schema and exact source-evidence validator now define the
-future LLM contract, but no LLM API calls, stock prices, or predictions are active yet.
+available. A public qualitative-output schema, baseline prompt, replaceable provider interface,
+OpenAI adapter, and exact source-evidence validator now define the qualitative-extraction
+foundation. No command invokes the LLM yet, so no LLM API calls, qualitative database records,
+stock prices, or predictions are active.
 
 ## Requirements
 
@@ -59,6 +61,10 @@ Copy `.env.example` to `.env` only when connecting external services. Never comm
 
 The Supabase secret key belongs only in server-side code. It must never be placed in the Vue application or shared through chat, email, logs, or source control.
 
+The OpenAI API key is also server-only. `OPENAI_API_KEY` and `OPENAI_MODEL` are currently read only
+by the unconnected qualitative-extraction foundation; the existing worker commands do not require
+them or make paid LLM requests.
+
 After applying the Supabase migrations, verify the connection and run the filing sync:
 
 ```bash
@@ -70,6 +76,16 @@ pnpm worker:extract-document-text
 pnpm worker:extract-financial-metrics
 pnpm worker:calculate-financial-derived-metrics
 ```
+
+To inspect the exact qualitative input for one event without calling OpenAI, run:
+
+```bash
+pnpm worker:preview-qualitative <earnings-event-id>
+```
+
+The preview downloads and verifies the current and optional previous Exhibit 99.1 readable text,
+then prints only document metadata, fingerprints, character counts, and a rough token estimate. It
+does not print document text, use the OpenAI key, write an extraction row, or make a paid request.
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations
@@ -107,7 +123,8 @@ It checks once per hour on weekdays to keep free-tier usage comfortably low.
 
 - SEC EDGAR for filings and structured financial facts.
 - Tiingo for personal end-of-day price research.
-- A replaceable structured-output LLM provider for qualitative extraction.
+- OpenAI Responses API for the first structured qualitative-extraction provider. The provider is
+  replaceable through a public interface, but it is not connected to a runnable worker command yet.
 
 ## License
 

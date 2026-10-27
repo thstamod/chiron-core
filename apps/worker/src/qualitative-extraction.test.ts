@@ -22,6 +22,7 @@ function sourceDocument(
     role,
     documentType: 'sec-exhibit-99.1',
     publishedAt,
+    firstSeenAt: publishedAt,
     sourceContentSha256: `source-${documentId}`,
     textExtractionVersion: 'sec-html-text-v3',
     textContentSha256: calculateContentSha256(new TextEncoder().encode(text)),
@@ -323,6 +324,17 @@ test('rejects a source published after the analysis cutoff', () => {
       [currentDocument],
     ),
     /published after the analysis cutoff/,
+  )
+})
+
+test('rejects a source first seen after the analysis cutoff', () => {
+  assert.throws(
+    () => prepareQualitativeExtractionInput(
+      'event-1',
+      '2026-10-20T21:00:00.000Z',
+      [{ ...currentDocument, firstSeenAt: '2026-10-20T21:00:01.000Z' }],
+    ),
+    /first seen after the analysis cutoff/,
   )
 })
 
