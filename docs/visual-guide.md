@@ -75,7 +75,7 @@ flowchart TD
 | `apps/worker/src/qualitative-input-loader.ts` | Selects and verifies one current and optional previous earnings release for a controlled extraction. |
 | `apps/worker/src/qualitative-preview.ts` | Reports the exact input manifest and a rough size estimate without calling an LLM. |
 | `apps/worker/src/qualitative-provider.ts` | Defines the provider-independent request, result, usage, and failure contract for qualitative extraction. |
-| `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v1` prompt from reproducible current and previous documents. |
+| `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v2` prompt from reproducible current and previous documents. |
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
 | `apps/worker/src/canonical-json.ts` | Serializes JSON in stable key order before reproducibility fingerprints are calculated. |

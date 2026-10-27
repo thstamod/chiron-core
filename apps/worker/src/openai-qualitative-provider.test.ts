@@ -12,7 +12,8 @@ import type { QualitativeProviderRequest } from './qualitative-provider.js'
 
 const validExtraction: QualitativeExtraction = {
   guidance: {
-    change: 'not_provided',
+    status: 'not_provided',
+    items: [],
     summary: null,
     evidence: [],
   },
@@ -38,14 +39,15 @@ const providerRequest: QualitativeProviderRequest = {
     earningsEventId: 'event-1',
     analysisCutoffAt: '2026-10-21T00:00:00.000Z',
     inputFingerprint: 'input-fingerprint',
-    schemaVersion: 'qualitative-earnings-v1',
+    schemaVersion: 'qualitative-earnings-v2',
     inputSelectionVersion: 'earnings-release-input-v1',
   },
   prompt: {
-    version: 'baseline-v1',
+    version: 'baseline-v2',
     instructions: 'Extract only supported qualitative facts.',
     documentInput: 'BEGIN_DOCUMENT\nDocument text\nEND_DOCUMENT',
   },
+  allowedDocumentIds: ['11111111-1111-4111-8111-111111111111'],
   maximumOutputTokens: 2_000,
 }
 
@@ -100,6 +102,10 @@ test('sends one structured, non-stored OpenAI request and normalizes success', a
   assert.equal(requests[0]?.truncation, 'disabled')
   assert.equal(requests[0]?.text?.format?.type, 'json_schema')
   assert.equal(requests[0]?.text?.format?.name, 'chiron_qualitative_earnings')
+  assert.match(
+    JSON.stringify(requests[0]?.text?.format),
+    /11111111-1111-4111-8111-111111111111/,
+  )
   assert.doesNotMatch(JSON.stringify(requests[0]), /input-fingerprint/)
   assert.equal(result.status, QualitativeProviderStatus.completed)
   assert.equal(result.providerRequestId, 'resp-1')
@@ -177,6 +183,42 @@ test('records schema-invalid output without retrying', async () => {
   assert.equal(requestCount, 1)
   assert.equal(result.status, QualitativeProviderStatus.invalidOutput)
   assert.equal(result.retryable, false)
+})
+
+test('rejects an evidence document ID that was not supplied to the provider', async () => {
+  const provider = new OpenAIQualitativeExtractionProvider({
+    model: 'requested-model',
+    now: testClock(),
+    responsesParser: {
+      async parse() {
+        return openAIResponse({
+          output_parsed: {
+            ...validExtraction,
+            guidance: {
+              status: 'provided',
+              items: [{
+                metric: 'revenue',
+                direction: 'maintained',
+                period: 'full-year 2026',
+                summary: 'Guidance was maintained.',
+                evidence: [{
+                  sourceDocumentId: '33333333-3333-4333-8333-333333333333',
+                  quote: 'Guidance was maintained.',
+                }],
+              }],
+              summary: 'Guidance was maintained.',
+              evidence: [],
+            },
+          },
+        })
+      },
+    },
+  })
+
+  const result = await provider.extract(providerRequest)
+
+  assert.equal(result.status, QualitativeProviderStatus.invalidOutput)
+  assert.equal(result.extraction, null)
 })
 
 test('records an SDK structured-output parse error without retrying', async () => {

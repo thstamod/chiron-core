@@ -55,7 +55,7 @@ export const RuleVersion = {
 } as const
 
 export const PromptVersion = {
-  baselineQualitativeExtraction: 'baseline-v1',
+  baselineQualitativeExtraction: 'baseline-v2',
 } as const
 
 export const QualitativeExtractionLimit = {

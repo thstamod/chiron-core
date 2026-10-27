@@ -174,6 +174,12 @@ function evidenceReferences(extraction: QualitativeExtraction): EvidenceReferenc
       fieldPath: `guidance.evidence[${index}]`,
       evidence,
     })),
+    ...extraction.guidance.items.flatMap((item, itemIndex) => (
+      item.evidence.map((evidence, evidenceIndex) => ({
+        fieldPath: `guidance.items[${itemIndex}].evidence[${evidenceIndex}]`,
+        evidence,
+      }))
+    )),
     ...extraction.marginDirection.evidence.map((evidence, index) => ({
       fieldPath: `marginDirection.evidence[${index}]`,
       evidence,
@@ -245,20 +251,35 @@ function validateSemanticEvidenceRules(
     throw new Error('Qualitative evidence validation requires a current document')
   }
 
-  const concreteGuidance = !['not_provided', 'unclear'].includes(extraction.guidance.change)
-  requireEvidence(
-    concreteGuidance,
-    extraction.guidance.evidence,
-    'A concrete guidance change',
-  )
-  requireSummary(concreteGuidance, extraction.guidance.summary, 'A concrete guidance change')
-  if (concreteGuidance) {
+  if (extraction.guidance.status === 'provided' && extraction.guidance.items.length === 0) {
+    throw new Error('Provided guidance requires at least one guidance item')
+  }
+  if (
+    extraction.guidance.status !== 'provided'
+    && extraction.guidance.items.length > 0
+  ) {
+    throw new Error('Only provided guidance may contain classified guidance items')
+  }
+  if (extraction.guidance.status === 'not_provided' && extraction.guidance.evidence.length > 0) {
+    throw new Error('Guidance marked not provided cannot contain evidence')
+  }
+  const unclearGuidance = extraction.guidance.status === 'unclear'
+  requireEvidence(unclearGuidance, extraction.guidance.evidence, 'Unclear guidance')
+  requireSummary(unclearGuidance, extraction.guidance.summary, 'Unclear guidance')
+  if (unclearGuidance) {
     requireEvidenceFromDocument(
       extraction.guidance.evidence,
       currentDocument.documentId,
-      'A concrete guidance change',
+      'Unclear guidance',
     )
   }
+  extraction.guidance.items.forEach((item, index) => {
+    requireEvidenceFromDocument(
+      item.evidence,
+      currentDocument.documentId,
+      `guidance.items[${index}]`,
+    )
+  })
 
   const concreteMargin = !['not_disclosed', 'unclear']
     .includes(extraction.marginDirection.direction)

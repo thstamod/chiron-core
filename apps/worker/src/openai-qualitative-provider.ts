@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { zodTextFormat } from 'openai/helpers/zod'
 import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses'
 import {
-  qualitativeExtractionSchema,
+  qualitativeExtractionSchemaForDocuments,
 } from '@chiron/shared'
 import type { OpenAILanguageModelConfig } from './config.js'
 import {
@@ -152,6 +152,9 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
     const startedAt = new Date(startedMilliseconds).toISOString()
 
     try {
+      const responseSchema = qualitativeExtractionSchemaForDocuments(
+        request.allowedDocumentIds,
+      )
       const response = await this.responsesParser.parse({
         model: this.model,
         input: [
@@ -160,7 +163,7 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
         ],
         text: {
           format: zodTextFormat(
-            qualitativeExtractionSchema,
+            responseSchema,
             OpenAIConfig.qualitativeResponseFormatName,
           ),
         },
@@ -210,7 +213,7 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
         }
       }
 
-      const parsedExtraction = qualitativeExtractionSchema.safeParse(response.output_parsed)
+      const parsedExtraction = responseSchema.safeParse(response.output_parsed)
       if (!parsedExtraction.success) {
         return {
           ...sharedResult,

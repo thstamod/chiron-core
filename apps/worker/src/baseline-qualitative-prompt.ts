@@ -22,8 +22,10 @@ Evidence rules:
 - Prefer short quotes containing the exact language needed to support the claim.
 
 Classification rules:
-- Mark guidance raised, maintained, lowered, introduced, or withdrawn only when explicit wording or comparable guidance values support that classification.
-- Use not_provided when the current release contains no usable guidance. Use unclear when guidance exists but its direction is ambiguous or conflicting.
+- Classify each guidance item separately by metric, direction, and period. Never combine revenue, earnings, margin, expense, capital-expenditure, cash-flow, or other guidance into one direction.
+- Mark a guidance item raised, maintained, lowered, introduced, or withdrawn only when explicit wording or comparable values for the same metric and period support it.
+- Use guidance status not_provided when the current release contains no usable guidance. Use unclear when guidance exists but cannot be classified reliably. Use provided only when at least one item is supported.
+- A raised expense or capital-expenditure outlook is not the same as raised revenue or earnings guidance. Extract the change without describing it as automatically positive or negative.
 - Assess margin direction only from explicit reported or forward-looking margin information. Do not infer it from revenue growth alone. State in the summary whether the evidence concerns reported margins or management's outlook.
 - Compare management tone using changes in certainty, demand language, risks, and outlook. If no previous document exists, changeFromPrevious must be unavailable.
 - Return at most three material positives and three material risks.
@@ -61,6 +63,7 @@ export function buildBaselineQualitativeProviderRequest(
       instructions: baselineInstructions,
       documentInput,
     },
+    allowedDocumentIds: preparedInput.documents.map((document) => document.documentId),
     maximumOutputTokens: QualitativeExtractionLimit.maximumOutputTokens,
   }
 }

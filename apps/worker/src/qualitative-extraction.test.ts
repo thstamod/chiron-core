@@ -47,12 +47,19 @@ const previousDocument = sourceDocument(
 function comparativeExtraction(): QualitativeExtraction {
   return {
     guidance: {
-      change: 'maintained',
-      summary: 'Management maintained its demand outlook.',
-      evidence: [{
-        sourceDocumentId: currentDocumentId,
-        quote: 'Management expects continued demand.',
+      status: 'provided',
+      items: [{
+        metric: 'revenue',
+        direction: 'maintained',
+        period: 'full-year 2026',
+        summary: 'Management maintained its demand outlook.',
+        evidence: [{
+          sourceDocumentId: currentDocumentId,
+          quote: 'Management expects continued demand.',
+        }],
       }],
+      summary: 'Management maintained its demand outlook.',
+      evidence: [],
     },
     marginDirection: {
       direction: 'improving',
@@ -99,7 +106,8 @@ function comparativeExtraction(): QualitativeExtraction {
 function currentOnlyExtraction(): QualitativeExtraction {
   const extraction = comparativeExtraction()
   extraction.guidance = {
-    change: 'not_provided',
+    status: 'not_provided',
+    items: [],
     summary: null,
     evidence: [],
   }
@@ -193,31 +201,55 @@ test('accepts explicit unavailable values for a current-only extraction', () => 
   assert.equal(result.locatedEvidence.length, 3)
 })
 
-test('requires evidence and a summary for a concrete guidance change', () => {
+test('requires evidence and a summary for each provided guidance item', () => {
   const withoutEvidence = comparativeExtraction()
-  withoutEvidence.guidance.evidence = []
+  withoutEvidence.guidance.items[0]!.evidence = []
   assert.throws(
     () => validateAndLocateQualitativeEvidence(
       withoutEvidence,
       [currentDocument, previousDocument],
     ),
-    /requires supporting evidence/,
   )
 
   const withoutSummary = comparativeExtraction()
-  withoutSummary.guidance.summary = null
+  withoutSummary.guidance.items[0]!.summary = ''
   assert.throws(
     () => validateAndLocateQualitativeEvidence(
       withoutSummary,
       [currentDocument, previousDocument],
     ),
-    /requires a summary/,
+  )
+})
+
+test('requires provided guidance to contain at least one classified item', () => {
+  const extraction = comparativeExtraction()
+  extraction.guidance.items = []
+
+  assert.throws(
+    () => validateAndLocateQualitativeEvidence(
+      extraction,
+      [currentDocument, previousDocument],
+    ),
+    /requires at least one guidance item/,
+  )
+})
+
+test('rejects classified items when guidance is marked not provided', () => {
+  const extraction = comparativeExtraction()
+  extraction.guidance.status = 'not_provided'
+
+  assert.throws(
+    () => validateAndLocateQualitativeEvidence(
+      extraction,
+      [currentDocument, previousDocument],
+    ),
+    /Only provided guidance may contain classified guidance items/,
   )
 })
 
 test('requires current-document evidence for current guidance', () => {
   const extraction = comparativeExtraction()
-  extraction.guidance.evidence = [{
+  extraction.guidance.items[0]!.evidence = [{
     sourceDocumentId: previousDocumentId,
     quote: 'Management expects stable demand.',
   }]

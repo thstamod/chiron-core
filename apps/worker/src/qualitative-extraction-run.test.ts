@@ -42,9 +42,16 @@ const tokenUsage = {
 function extraction(guidanceQuote: string): QualitativeExtraction {
   return {
     guidance: {
-      change: 'maintained',
+      status: 'provided',
+      items: [{
+        metric: 'revenue',
+        direction: 'maintained',
+        period: 'full-year 2026',
+        summary: 'Management maintained its demand outlook.',
+        evidence: [{ sourceDocumentId: currentDocument.documentId, quote: guidanceQuote }],
+      }],
       summary: 'Management maintained its demand outlook.',
-      evidence: [{ sourceDocumentId: currentDocument.documentId, quote: guidanceQuote }],
+      evidence: [],
     },
     marginDirection: { direction: 'not_disclosed', summary: null, evidence: [] },
     managementTone: {
@@ -78,7 +85,7 @@ function completedResult(output: QualitativeExtraction): QualitativeProviderResu
 test('builds a valid permanent record after exact evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v1',
+    'baseline-v2',
     completedResult(extraction(documentText)),
   )
 
@@ -93,7 +100,7 @@ test('builds a valid permanent record after exact evidence validation', () => {
 test('preserves completed output that fails evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v1',
+    'baseline-v2',
     completedResult(extraction('This quote is not in the document.')),
   )
 
@@ -121,7 +128,7 @@ test('builds an unsuccessful record without fake output or validation', () => {
   }
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v1',
+    'baseline-v2',
     failedResult,
   )
 
