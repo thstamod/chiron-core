@@ -76,7 +76,8 @@ flowchart TD
 | `apps/worker/src/qualitative-preview.ts` | Reports the exact input manifest and a rough size estimate without calling an LLM. |
 | `apps/worker/src/qualitative-provider.ts` | Defines the provider-independent request, result, usage, and failure contract for qualitative extraction. |
 | `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v1` prompt from reproducible current and previous documents. |
-| `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. It is not connected to a command yet. |
+| `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
+| `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
 | `apps/worker/src/canonical-json.ts` | Serializes JSON in stable key order before reproducibility fingerprints are calculated. |
 | `apps/worker/src/content-hash.ts` | Creates SHA-256 fingerprints for original and derived files. |
 | `apps/worker/src/storage.ts` | Persists immutable files and safely handles concurrent uploads. |
@@ -105,21 +106,24 @@ A TypeScript type describes what an object should look like. It does not fetch o
 ```mermaid
 flowchart TD
     A[GitHub workflow or your terminal] --> B[worker package.json script]
-    B --> C[index.ts: main]
-    C --> D{Command?}
+    B --> MAIN[index.ts: main]
+    MAIN --> D{Command?}
     D -->|health| H[runHealthCheck]
     D -->|sync-filings| F[syncFilings]
     D -->|sync-documents| DOC[syncDocuments]
     D -->|sync-events| E[syncEvents]
     D -->|extract-document-text| T[extractDocumentText]
     D -->|extract-financial-metrics| X[extractFinancialMetrics]
-    D -->|calculate-financial-derived-metrics| C[calculateFinancialDerivedMetrics]
+    D -->|calculate-financial-derived-metrics| CALC[calculateFinancialDerivedMetrics]
+    D -->|preview-qualitative| PREVIEW[Build safe zero-cost preview]
+    D -->|extract-qualitative plus confirmation flag| QUAL[Run one provider extraction]
     F --> J[jobs.ts: runTrackedJob]
     DOC --> J
     E --> J
     T --> J
     X --> J
-    C --> J
+    CALC --> J
+    QUAL --> J
     J --> START[Record running in job_runs]
     START --> EXEC[Execute selected job]
     EXEC --> OK[Record succeeded and counts]
@@ -412,10 +416,10 @@ flowchart TD
 The end-to-end jobs below are planned; they do not exist yet.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
-validation are implemented foundations. A public baseline prompt and an OpenAI adapter are also
-implemented and covered by mocked tests. Nothing invokes the adapter yet: there is no runnable
-qualitative command, real API call, database persistence, retry orchestration, scoring, or
-evaluation job.
+validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost
+preview, and explicitly paid single-event command are implemented and covered by mocked tests. The
+command stores provider and evidence-validation results in `extraction_runs`; it has no automatic
+retry and is not scheduled. Scoring and evaluation jobs remain planned.
 
 ```mermaid
 flowchart TD

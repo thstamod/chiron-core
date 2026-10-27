@@ -4,6 +4,7 @@ import type { WorkerHealth } from '@chiron/shared'
 import {
   loadFilingSyncConfig,
   loadDatabaseConfig,
+  loadOpenAILanguageModelConfig,
   loadSecRequestConfig,
   type FilingSyncConfig,
   type SecRequestConfig,
@@ -12,6 +13,7 @@ import {
   EarningsCategory,
   JobName,
   WorkerCommand,
+  WorkerCommandFlag,
   WorkerHealthConfig,
   WorkerTiming,
 } from './constants.js'
@@ -52,6 +54,8 @@ import {
   fetchRecentFilings,
 } from './sec.js'
 import { previewQualitativeExtraction } from './qualitative-preview.js'
+import { createOpenAIQualitativeExtractionProvider } from './openai-qualitative-provider.js'
+import { extractAndStoreQualitativeAnalysis } from './qualitative-extraction-run.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -259,6 +263,7 @@ async function calculateFinancialDerivedMetrics(
 
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
+  const commandArguments = process.argv.slice(3).filter((argument) => argument !== '--')
 
   if (command === WorkerCommand.health) {
     await runHealthCheck()
@@ -312,10 +317,7 @@ async function main(): Promise<void> {
       )
       break
     case WorkerCommand.previewQualitativeExtraction: {
-      const earningsEventId = process.argv
-        .slice(3)
-        .find((argument) => argument !== '--')
-        ?.trim()
+      const earningsEventId = commandArguments[0]?.trim()
       if (!earningsEventId) {
         throw new Error('preview-qualitative requires an earnings event ID')
       }
@@ -325,6 +327,34 @@ async function main(): Promise<void> {
         new Date().toISOString(),
       )
       console.log(JSON.stringify(preview, null, 2))
+      break
+    }
+    case WorkerCommand.extractQualitative: {
+      const earningsEventId = commandArguments.find(
+        (argument) => argument !== WorkerCommandFlag.executePaidRequest,
+      )?.trim()
+      if (!earningsEventId) {
+        throw new Error('extract-qualitative requires an earnings event ID')
+      }
+      if (!commandArguments.includes(WorkerCommandFlag.executePaidRequest)) {
+        throw new Error(
+          `extract-qualitative requires ${WorkerCommandFlag.executePaidRequest}`,
+        )
+      }
+      const provider = createOpenAIQualitativeExtractionProvider(
+        loadOpenAILanguageModelConfig(),
+      )
+      const summary = await runTrackedJob(
+        client,
+        JobName.qualitativeExtraction,
+        () => extractAndStoreQualitativeAnalysis(
+          client,
+          provider,
+          earningsEventId,
+          new Date().toISOString(),
+        ),
+      )
+      console.log(JSON.stringify(summary, null, 2))
       break
     }
     default:

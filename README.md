@@ -23,8 +23,8 @@ net income, basic earnings per share, and diluted earnings per share. It then ca
 year-over-year revenue growth, net margin, and year-over-year margin change when comparable data is
 available. A public qualitative-output schema, baseline prompt, replaceable provider interface,
 OpenAI adapter, and exact source-evidence validator now define the qualitative-extraction
-foundation. No command invokes the LLM yet, so no LLM API calls, qualitative database records,
-stock prices, or predictions are active.
+foundation. A manual single-event command can invoke the LLM only with an explicit paid-request
+flag; it is never scheduled automatically. Stock prices and predictions are not active yet.
 
 ## Requirements
 
@@ -61,9 +61,9 @@ Copy `.env.example` to `.env` only when connecting external services. Never comm
 
 The Supabase secret key belongs only in server-side code. It must never be placed in the Vue application or shared through chat, email, logs, or source control.
 
-The OpenAI API key is also server-only. `OPENAI_API_KEY` and `OPENAI_MODEL` are currently read only
-by the unconnected qualitative-extraction foundation; the existing worker commands do not require
-them or make paid LLM requests.
+The OpenAI API key is also server-only. `OPENAI_API_KEY` and `OPENAI_MODEL` are required only by the
+explicit qualitative-extraction command. The preview and scheduled ingestion commands neither load
+the key nor make paid LLM requests.
 
 After applying the Supabase migrations, verify the connection and run the filing sync:
 
@@ -86,6 +86,16 @@ pnpm worker:preview-qualitative <earnings-event-id>
 The preview downloads and verifies the current and optional previous Exhibit 99.1 readable text,
 then prints only document metadata, fingerprints, character counts, and a rough token estimate. It
 does not print document text, use the OpenAI key, write an extraction row, or make a paid request.
+
+After reviewing the preview, one event can be extracted with an explicitly paid manual command:
+
+```bash
+pnpm worker:extract-qualitative <earnings-event-id> --execute-paid-request
+```
+
+The confirmation flag is required. This command makes exactly one provider request, performs local
+schema and exact-evidence validation, and inserts one permanent `extraction_runs` record. It is not
+part of the scheduled workflow and has no automatic retry.
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations

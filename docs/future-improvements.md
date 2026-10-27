@@ -449,6 +449,46 @@ small.
 - Memory and Supabase request rates remain within measured safe limits.
 - Output is identical to sequential extraction for the same documents and parser version.
 
+### Persist paid LLM requests before calling the provider
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required before qualitative extraction is scheduled or run at larger volume
+
+#### Current behavior
+
+The manually controlled qualitative command reads and verifies its Supabase inputs, calls the LLM,
+then inserts the complete attempt into `extraction_runs`. If the provider succeeds but the database
+becomes unavailable immediately afterward, the paid output cannot be recovered because provider
+storage is disabled and no database record existed before the request.
+
+#### Proposed behavior
+
+Create a durable request record before the provider call. Store the final provider result as a
+separate append-only record linked to that request. A request left without a result clearly shows
+that execution was interrupted or its completion is unknown. Completed results remain immutable;
+the implementation must not achieve recovery by allowing earlier results to be overwritten.
+
+#### What this improves
+
+- Preserves evidence that a paid request started even if the worker or database fails afterward.
+- Distinguishes never-started, interrupted, failed, and completed extraction attempts.
+- Supports safe recovery without silently issuing a duplicate paid request.
+
+#### What this does not improve
+
+No database design can guarantee recovery of a response that the provider delivered only to a
+worker process that crashed before persisting it. Provider idempotency or retrievable response
+storage would be needed for that final gap and must be evaluated against privacy requirements.
+
+#### Acceptance checks
+
+- A durable request row exists before the external provider receives the request.
+- Provider results are appended and cannot modify earlier completed results.
+- An interrupted request is visible and is not automatically charged again.
+- Manual recovery requires an explicit decision and records its relationship to the earlier request.
+- Logs never contain source documents, LLM output, or API credentials.
+
 ### Add a server-side GraphQL API for the live dashboard
 
 **Status:** Agreed, not implemented

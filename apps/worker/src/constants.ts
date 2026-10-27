@@ -70,6 +70,11 @@ export const QualitativeProviderStatus = {
   invalidOutput: 'invalid_output',
 } as const
 
+export const QualitativeValidationStatus = {
+  valid: 'valid',
+  invalid: 'invalid',
+} as const
+
 export const LanguageModelProvider = {
   openAi: 'openai',
 } as const
@@ -195,6 +200,11 @@ export const WorkerCommand = {
   extractFinancialMetrics: 'extract-financial-metrics',
   calculateFinancialDerivedMetrics: 'calculate-financial-derived-metrics',
   previewQualitativeExtraction: 'preview-qualitative',
+  extractQualitative: 'extract-qualitative',
+} as const
+
+export const WorkerCommandFlag = {
+  executePaidRequest: '--execute-paid-request',
 } as const
 
 export const JobName = {
@@ -204,6 +214,7 @@ export const JobName = {
   documentTextExtraction: 'document-text-extraction',
   financialMetricExtraction: 'financial-metric-extraction',
   financialDerivedMetricCalculation: 'financial-derived-metric-calculation',
+  qualitativeExtraction: 'qualitative-extraction',
 } as const
 
 export const JobStatus = {

@@ -13,6 +13,7 @@
     "extract:financial-metrics": "tsx src/index.ts extract-financial-metrics",
     "calculate:financial-derived-metrics": "tsx src/index.ts calculate-financial-derived-metrics",
     "preview:qualitative": "tsx src/index.ts preview-qualitative",
+    "extract:qualitative": "tsx src/index.ts extract-qualitative",
     "test": "tsx --test src/**/*.test.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"

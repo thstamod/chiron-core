@@ -16,6 +16,7 @@
     "worker:extract-financial-metrics": "pnpm --filter @chiron/worker extract:financial-metrics",
     "worker:calculate-financial-derived-metrics": "pnpm --filter @chiron/worker calculate:financial-derived-metrics",
     "worker:preview-qualitative": "pnpm --filter @chiron/worker preview:qualitative",
+    "worker:extract-qualitative": "pnpm --filter @chiron/worker extract:qualitative",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
