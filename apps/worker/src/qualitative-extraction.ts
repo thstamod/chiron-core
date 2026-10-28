@@ -297,17 +297,19 @@ function validateSemanticEvidenceRules(
   ) {
     throw new Error('Only provided guidance may contain classified guidance items')
   }
-  if (extraction.guidance.status === 'not_provided' && extraction.guidance.evidence.length > 0) {
-    throw new Error('Guidance marked not provided cannot contain evidence')
-  }
   const unclearGuidance = extraction.guidance.status === 'unclear'
   requireEvidence(unclearGuidance, extraction.guidance.evidence, 'Unclear guidance')
-  requireSummary(unclearGuidance, extraction.guidance.summary, 'Unclear guidance')
-  if (unclearGuidance) {
+  const guidanceAssessmentHasEvidence = extraction.guidance.evidence.length > 0
+  requireSummary(
+    unclearGuidance || guidanceAssessmentHasEvidence,
+    extraction.guidance.summary,
+    'Guidance assessment with evidence',
+  )
+  if (guidanceAssessmentHasEvidence) {
     requireEvidenceFromDocument(
       extraction.guidance.evidence,
       currentDocument.documentId,
-      'Unclear guidance',
+      'Guidance assessment',
       passagesById,
     )
   }

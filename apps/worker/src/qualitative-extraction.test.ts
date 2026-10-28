@@ -242,6 +242,32 @@ test('rejects classified items when guidance is marked not provided', () => {
   )
 })
 
+test('accepts current evidence when the release explicitly does not provide guidance', () => {
+  const extraction = currentOnlyExtraction()
+  extraction.guidance.summary = 'Management will provide guidance separately.'
+  extraction.guidance.evidence = [{ passageId: 'current-p0001' }]
+
+  const result = validateAndLocateQualitativeEvidence(extraction, [currentDocument])
+
+  assert.ok(result.locatedEvidence.some(
+    (evidence) => evidence.fieldPath === 'guidance.evidence[0]',
+  ))
+})
+
+test('rejects previous-document evidence for a current guidance assessment', () => {
+  const extraction = currentOnlyExtraction()
+  extraction.guidance.summary = 'Management will provide guidance separately.'
+  extraction.guidance.evidence = [{ passageId: 'previous-p0001' }]
+
+  assert.throws(
+    () => validateAndLocateQualitativeEvidence(
+      extraction,
+      [currentDocument, previousDocument],
+    ),
+    /Guidance assessment requires evidence from the current document/,
+  )
+})
+
 test('requires current-document evidence for current guidance', () => {
   const extraction = comparativeExtraction()
   extraction.guidance.items[0]!.evidence = [{ passageId: 'previous-p0001' }]
