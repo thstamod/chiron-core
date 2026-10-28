@@ -18,7 +18,6 @@ export interface QualitativeProviderRequestMetadata {
 export interface QualitativeProviderRequest {
   metadata: QualitativeProviderRequestMetadata
   prompt: QualitativeExtractionPrompt
-  allowedPassageIds: string[]
   maximumOutputTokens: number
 }
 

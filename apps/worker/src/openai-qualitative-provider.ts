@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { zodTextFormat } from 'openai/helpers/zod'
 import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses'
 import {
-  qualitativeExtractionSchemaForPassages,
+  qualitativeExtractionSchema,
 } from '@chiron/shared'
 import type { OpenAILanguageModelConfig } from './config.js'
 import {
@@ -42,6 +42,13 @@ export interface OpenAIQualitativeResponse {
 
 export interface OpenAIResponsesParser {
   parse(request: ResponseCreateParamsNonStreaming): Promise<OpenAIQualitativeResponse>
+}
+
+export function buildOpenAIQualitativeResponseFormat() {
+  return zodTextFormat(
+    qualitativeExtractionSchema,
+    OpenAIConfig.qualitativeResponseFormatName,
+  )
 }
 
 interface OpenAIQualitativeProviderOptions {
@@ -152,9 +159,6 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
     const startedAt = new Date(startedMilliseconds).toISOString()
 
     try {
-      const responseSchema = qualitativeExtractionSchemaForPassages(
-        request.allowedPassageIds,
-      )
       const response = await this.responsesParser.parse({
         model: this.model,
         input: [
@@ -162,10 +166,7 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
           { role: 'user', content: request.prompt.documentInput },
         ],
         text: {
-          format: zodTextFormat(
-            responseSchema,
-            OpenAIConfig.qualitativeResponseFormatName,
-          ),
+          format: buildOpenAIQualitativeResponseFormat(),
         },
         max_output_tokens: request.maximumOutputTokens,
         reasoning: { effort: OpenAIConfig.reasoningEffort },
@@ -213,7 +214,7 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
         }
       }
 
-      const parsedExtraction = responseSchema.safeParse(response.output_parsed)
+      const parsedExtraction = qualitativeExtractionSchema.safeParse(response.output_parsed)
       if (!parsedExtraction.success) {
         return {
           ...sharedResult,

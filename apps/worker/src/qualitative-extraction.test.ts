@@ -67,10 +67,8 @@ function comparativeExtraction(): QualitativeExtraction {
       currentTone: 'positive',
       changeFromPrevious: 'more_positive',
       summary: 'Management used stronger demand language than in the previous release.',
-      evidence: [
-        { passageId: 'current-p0001' },
-        { passageId: 'previous-p0001' },
-      ],
+      currentEvidence: [{ passageId: 'current-p0001' }],
+      previousEvidence: [{ passageId: 'previous-p0001' }],
     },
     keyPositives: [{
       statement: 'Revenue growth accelerated.',
@@ -102,7 +100,8 @@ function currentOnlyExtraction(): QualitativeExtraction {
     currentTone: 'positive',
     changeFromPrevious: 'unavailable',
     summary: 'Management expects continued demand.',
-    evidence: [{ passageId: 'current-p0001' }],
+    currentEvidence: [{ passageId: 'current-p0001' }],
+    previousEvidence: [],
   }
   return extraction
 }
@@ -137,20 +136,43 @@ test('rejects evidence that references an unknown passage', () => {
 
 test('requires both source periods for a concrete tone comparison', () => {
   const extraction = comparativeExtraction()
-  extraction.managementTone.evidence = [extraction.managementTone.evidence[0]!]
+  extraction.managementTone.previousEvidence = []
 
   assert.throws(
     () => validateAndLocateQualitativeEvidence(
       extraction,
       [currentDocument, previousDocument],
     ),
-    /requires current and previous document evidence/,
+    /previous period requires supporting evidence/,
+  )
+})
+
+test('keeps current and previous tone evidence in their matching source roles', () => {
+  const currentRoleMismatch = comparativeExtraction()
+  currentRoleMismatch.managementTone.currentEvidence = [{ passageId: 'previous-p0001' }]
+  assert.equal(qualitativeExtractionSchema.safeParse(currentRoleMismatch).success, false)
+
+  const previousRoleMismatch = comparativeExtraction()
+  previousRoleMismatch.managementTone.previousEvidence = [{ passageId: 'current-p0001' }]
+  assert.equal(qualitativeExtractionSchema.safeParse(previousRoleMismatch).success, false)
+})
+
+test('rejects previous evidence when tone comparison is unavailable', () => {
+  const extraction = currentOnlyExtraction()
+  extraction.managementTone.previousEvidence = [{ passageId: 'previous-p0001' }]
+
+  assert.throws(
+    () => validateAndLocateQualitativeEvidence(
+      extraction,
+      [currentDocument, previousDocument],
+    ),
+    /Unavailable tone change cannot contain previous-document evidence/,
   )
 })
 
 test('requires unavailable tone change when no previous document is supplied', () => {
   const extraction = comparativeExtraction()
-  extraction.managementTone.evidence = [extraction.managementTone.evidence[0]!]
+  extraction.managementTone.previousEvidence = []
 
   assert.throws(
     () => validateAndLocateQualitativeEvidence(extraction, [currentDocument]),

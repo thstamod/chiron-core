@@ -57,10 +57,6 @@ test('builds the versioned baseline request without provider-specific fields', (
   assert.match(request.prompt.instructions, /Do not give investment advice/)
   assert.equal(request.metadata.earningsEventId, 'event-1')
   assert.equal(request.metadata.inputFingerprint, preparedInput.inputSha256)
-  assert.deepEqual(request.allowedPassageIds, [
-    'current-p0001',
-    'previous-p0001',
-  ])
   assert.equal(request.metadata.schemaVersion, preparedInput.manifest.schemaVersion)
   assert.equal(
     request.metadata.inputSelectionVersion,

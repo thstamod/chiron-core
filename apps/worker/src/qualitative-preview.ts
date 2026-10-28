@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildBaselineQualitativeProviderRequest } from './baseline-qualitative-prompt.js'
+import { buildOpenAIQualitativeResponseFormat } from './openai-qualitative-provider.js'
 import { loadPreparedQualitativeExtractionInput } from './qualitative-input-loader.js'
 
 export interface QualitativeExtractionPreview {
@@ -20,7 +21,10 @@ export interface QualitativeExtractionPreview {
     passageCount: number
   }[]
   promptCharacterCount: number
-  approximateInputTokens: number
+  structuredOutputSchemaCharacterCount: number
+  approximatePromptTokens: number
+  approximateStructuredOutputSchemaTokens: number
+  approximateTotalInputTokens: number
   maximumOutputTokens: number
   warning: string
 }
@@ -38,6 +42,13 @@ export async function previewQualitativeExtraction(
   const request = buildBaselineQualitativeProviderRequest(preparedInput)
   const promptCharacterCount = request.prompt.instructions.length
     + request.prompt.documentInput.length
+  const structuredOutputSchemaCharacterCount = JSON.stringify(
+    buildOpenAIQualitativeResponseFormat(),
+  ).length
+  const approximatePromptTokens = Math.ceil(promptCharacterCount / 4)
+  const approximateStructuredOutputSchemaTokens = Math.ceil(
+    structuredOutputSchemaCharacterCount / 4,
+  )
 
   return {
     earningsEventId,
@@ -59,8 +70,12 @@ export async function previewQualitativeExtraction(
       ).length,
     })),
     promptCharacterCount,
-    approximateInputTokens: Math.ceil(promptCharacterCount / 4),
+    structuredOutputSchemaCharacterCount,
+    approximatePromptTokens,
+    approximateStructuredOutputSchemaTokens,
+    approximateTotalInputTokens:
+      approximatePromptTokens + approximateStructuredOutputSchemaTokens,
     maximumOutputTokens: request.maximumOutputTokens,
-    warning: 'Token count is a rough character-based prompt estimate and excludes provider schema overhead; no OpenAI request was made.',
+    warning: 'Token counts are rough character-based estimates; no OpenAI request was made.',
   }
 }

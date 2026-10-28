@@ -58,7 +58,8 @@ function extraction(guidancePassageId: string): QualitativeExtraction {
       currentTone: 'unclear',
       changeFromPrevious: 'unavailable',
       summary: null,
-      evidence: [],
+      currentEvidence: [],
+      previousEvidence: [],
     },
     keyPositives: [],
     keyRisks: [],
@@ -85,7 +86,7 @@ function completedResult(output: QualitativeExtraction): QualitativeProviderResu
 test('builds a valid permanent record after exact evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v3',
+    'baseline-v4',
     completedResult(extraction('current-p0001')),
   )
 
@@ -100,7 +101,7 @@ test('builds a valid permanent record after exact evidence validation', () => {
 test('preserves completed output that fails evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v3',
+    'baseline-v4',
     completedResult(extraction('current-p9999')),
   )
 
@@ -128,7 +129,7 @@ test('builds an unsuccessful record without fake output or validation', () => {
   }
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v3',
+    'baseline-v4',
     failedResult,
   )
 

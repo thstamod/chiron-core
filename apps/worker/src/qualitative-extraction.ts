@@ -196,8 +196,12 @@ function evidenceReferences(extraction: QualitativeExtraction): EvidenceReferenc
       fieldPath: `marginDirection.evidence[${index}]`,
       evidence,
     })),
-    ...extraction.managementTone.evidence.map((evidence, index) => ({
-      fieldPath: `managementTone.evidence[${index}]`,
+    ...extraction.managementTone.currentEvidence.map((evidence, index) => ({
+      fieldPath: `managementTone.currentEvidence[${index}]`,
+      evidence,
+    })),
+    ...extraction.managementTone.previousEvidence.map((evidence, index) => ({
+      fieldPath: `managementTone.previousEvidence[${index}]`,
       evidence,
     })),
     ...extraction.keyPositives.flatMap((claim, claimIndex) => (
@@ -236,7 +240,10 @@ function requireEvidenceFromDocument(
   passagesById: Map<string, QualitativeEvidencePassage>,
 ): void {
   if (!evidence.some((item) => passagesById.get(item.passageId)?.sourceDocumentId === documentId)) {
-    throw new Error(`${fieldName} requires evidence from the current document`)
+    const requiredDocumentRole = [...passagesById.values()].find(
+      (passage) => passage.sourceDocumentId === documentId,
+    )?.documentRole ?? 'required'
+    throw new Error(`${fieldName} requires evidence from the ${requiredDocumentRole} document`)
   }
 }
 
@@ -302,7 +309,7 @@ function validateSemanticEvidenceRules(
   const concreteCurrentTone = extraction.managementTone.currentTone !== 'unclear'
   requireEvidence(
     concreteCurrentTone,
-    extraction.managementTone.evidence,
+    extraction.managementTone.currentEvidence,
     'A concrete management tone',
   )
   requireSummary(
@@ -312,7 +319,7 @@ function validateSemanticEvidenceRules(
   )
   if (concreteCurrentTone) {
     requireEvidenceFromDocument(
-      extraction.managementTone.evidence,
+      extraction.managementTone.currentEvidence,
       currentDocument.documentId,
       'A concrete management tone',
       passagesById,
@@ -342,6 +349,12 @@ function validateSemanticEvidenceRules(
   if (!previousDocument && extraction.managementTone.changeFromPrevious !== 'unavailable') {
     throw new Error('Tone change must be unavailable when no previous document is supplied')
   }
+  if (
+    extraction.managementTone.changeFromPrevious === 'unavailable'
+    && extraction.managementTone.previousEvidence.length > 0
+  ) {
+    throw new Error('Unavailable tone change cannot contain previous-document evidence')
+  }
   if (!concreteToneComparison) return
   requireSummary(
     true,
@@ -349,18 +362,31 @@ function validateSemanticEvidenceRules(
     'A concrete tone comparison',
   )
 
-  const evidenceDocumentIds = new Set(
-    extraction.managementTone.evidence.map(
-      (evidence) => passagesById.get(evidence.passageId)?.sourceDocumentId,
-    ),
+  requireEvidence(
+    true,
+    extraction.managementTone.currentEvidence,
+    'A concrete tone comparison current period',
   )
-  if (
-    !previousDocument
-    || !evidenceDocumentIds.has(currentDocument.documentId)
-    || !evidenceDocumentIds.has(previousDocument.documentId)
-  ) {
-    throw new Error('A concrete tone comparison requires current and previous document evidence')
+  requireEvidence(
+    true,
+    extraction.managementTone.previousEvidence,
+    'A concrete tone comparison previous period',
+  )
+  requireEvidenceFromDocument(
+    extraction.managementTone.currentEvidence,
+    currentDocument.documentId,
+    'A concrete tone comparison current period',
+    passagesById,
+  )
+  if (!previousDocument) {
+    throw new Error('A concrete tone comparison requires a previous document')
   }
+  requireEvidenceFromDocument(
+    extraction.managementTone.previousEvidence,
+    previousDocument.documentId,
+    'A concrete tone comparison previous period',
+    passagesById,
+  )
 }
 
 export function validateAndLocateQualitativeEvidence(

@@ -61,10 +61,18 @@ export const managementToneChangeValues = [
   'unclear',
 ] as const
 
-export const qualitativeExtractionSchemaVersion = 'qualitative-earnings-v3'
+export const qualitativeExtractionSchemaVersion = 'qualitative-earnings-v4'
 
 export const qualitativeEvidenceSchema = z.object({
   passageId: z.string().regex(/^(current|previous)-p\d{4}$/),
+}).strict()
+
+const currentQualitativeEvidenceSchema = z.object({
+  passageId: z.string().regex(/^current-p\d{4}$/),
+}).strict()
+
+const previousQualitativeEvidenceSchema = z.object({
+  passageId: z.string().regex(/^previous-p\d{4}$/),
 }).strict()
 
 export type QualitativeEvidence = z.infer<typeof qualitativeEvidenceSchema>
@@ -102,7 +110,8 @@ function createQualitativeExtractionSchema(
     currentTone: z.enum(managementToneValues),
     changeFromPrevious: z.enum(managementToneChangeValues),
     summary: z.string().min(1).max(500).nullable(),
-    evidence: z.array(evidenceSchema).max(2),
+    currentEvidence: z.array(currentQualitativeEvidenceSchema).max(2),
+    previousEvidence: z.array(previousQualitativeEvidenceSchema).max(1),
   }).strict()
 
   return z.object({
@@ -119,22 +128,6 @@ function createQualitativeExtractionSchema(
 export const qualitativeExtractionSchema = createQualitativeExtractionSchema(
   qualitativeEvidenceSchema,
 )
-
-export function qualitativeExtractionSchemaForPassages(
-  passageIds: string[],
-): typeof qualitativeExtractionSchema {
-  const uniquePassageIds = [...new Set(passageIds)]
-  if (uniquePassageIds.length === 0) {
-    throw new Error('Qualitative extraction schema requires at least one passage ID')
-  }
-  uniquePassageIds.forEach((passageId) => qualitativeEvidenceSchema.shape.passageId.parse(passageId))
-  const allowedPassageIds = uniquePassageIds as [string, ...string[]]
-  const constrainedEvidenceSchema = z.object({
-    passageId: z.enum(allowedPassageIds),
-  }).strict()
-
-  return createQualitativeExtractionSchema(constrainedEvidenceSchema)
-}
 
 export type QualitativeExtraction = z.infer<typeof qualitativeExtractionSchema>
 export type GuidanceChange = typeof guidanceChangeValues[number]

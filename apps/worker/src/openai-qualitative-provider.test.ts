@@ -26,7 +26,8 @@ const validExtraction: QualitativeExtraction = {
     currentTone: 'unclear',
     changeFromPrevious: 'unavailable',
     summary: null,
-    evidence: [],
+    currentEvidence: [],
+    previousEvidence: [],
   },
   keyPositives: [],
   keyRisks: [],
@@ -39,15 +40,14 @@ const providerRequest: QualitativeProviderRequest = {
     earningsEventId: 'event-1',
     analysisCutoffAt: '2026-10-21T00:00:00.000Z',
     inputFingerprint: 'input-fingerprint',
-    schemaVersion: 'qualitative-earnings-v3',
+    schemaVersion: 'qualitative-earnings-v4',
     inputSelectionVersion: 'earnings-release-input-v1',
   },
   prompt: {
-    version: 'baseline-v3',
+    version: 'baseline-v4',
     instructions: 'Extract only supported qualitative facts.',
     documentInput: 'BEGIN_DOCUMENT\nDocument text\nEND_DOCUMENT',
   },
-  allowedPassageIds: ['current-p0001'],
   maximumOutputTokens: 2_000,
 }
 
@@ -102,10 +102,7 @@ test('sends one structured, non-stored OpenAI request and normalizes success', a
   assert.equal(requests[0]?.truncation, 'disabled')
   assert.equal(requests[0]?.text?.format?.type, 'json_schema')
   assert.equal(requests[0]?.text?.format?.name, 'chiron_qualitative_earnings')
-  assert.match(
-    JSON.stringify(requests[0]?.text?.format),
-    /current-p0001/,
-  )
+  assert.doesNotMatch(JSON.stringify(requests[0]?.text?.format), /current-p0001/)
   assert.doesNotMatch(JSON.stringify(requests[0]), /input-fingerprint/)
   assert.equal(result.status, QualitativeProviderStatus.completed)
   assert.equal(result.providerRequestId, 'resp-1')
@@ -185,7 +182,7 @@ test('records schema-invalid output without retrying', async () => {
   assert.equal(result.retryable, false)
 })
 
-test('rejects an evidence passage ID that was not supplied to the provider', async () => {
+test('leaves exact passage existence validation to the local evidence validator', async () => {
   const provider = new OpenAIQualitativeExtractionProvider({
     model: 'requested-model',
     now: testClock(),
@@ -214,8 +211,8 @@ test('rejects an evidence passage ID that was not supplied to the provider', asy
 
   const result = await provider.extract(providerRequest)
 
-  assert.equal(result.status, QualitativeProviderStatus.invalidOutput)
-  assert.equal(result.extraction, null)
+  assert.equal(result.status, QualitativeProviderStatus.completed)
+  assert.equal(result.extraction?.guidance.items[0]?.evidence[0]?.passageId, 'current-p9999')
 })
 
 test('records an SDK structured-output parse error without retrying', async () => {
