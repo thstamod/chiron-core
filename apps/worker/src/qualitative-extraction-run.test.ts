@@ -86,7 +86,7 @@ function completedResult(output: QualitativeExtraction): QualitativeProviderResu
 test('builds a valid permanent record after exact evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v5',
+    'baseline-v6',
     completedResult(extraction('current-p0001')),
   )
 
@@ -101,7 +101,7 @@ test('builds a valid permanent record after exact evidence validation', () => {
 test('preserves completed output that fails evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v5',
+    'baseline-v6',
     completedResult(extraction('current-p9999')),
   )
 
@@ -129,7 +129,7 @@ test('builds an unsuccessful record without fake output or validation', () => {
   }
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v5',
+    'baseline-v6',
     failedResult,
   )
 

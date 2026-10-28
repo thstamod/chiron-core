@@ -32,6 +32,7 @@ Classification rules:
 - Assess margin direction only from explicit reported or forward-looking margin information. Do not infer it from revenue growth alone. State in the summary whether the evidence concerns reported margins or management's outlook.
 - Compare management tone using changes in certainty, demand language, risks, and outlook. If no previous document exists, changeFromPrevious must be unavailable.
 - Key risks must describe event-specific developments or exposures emphasized by management. Exclude standard safe-harbor, forward-looking-statement, and generic risk-factor boilerplate unless it identifies a concrete new or changed exposure. Do not split one generic risk list into multiple claims.
+- Treat a material one-time, discrete, valuation, investment, tax, refund, settlement, or other non-operating benefit that increased reported earnings as an event-specific caveat. Clearly distinguish it from recurring operating performance and cite the release's exact evidence.
 - An empty keyRisks array means no event-specific risk was found in the supplied releases. It is unknown, not positive evidence, and must never be described as the company having no risks.
 - Return at most three material positives and three material risks.
 - Use sourceLimitations to disclose missing or insufficient evidence, including that SEC legal and risk sections, official regulatory sources, and external news were not supplied.`

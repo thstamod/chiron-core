@@ -56,6 +56,8 @@ test('builds the versioned baseline request without provider-specific fields', (
   )
   assert.match(request.prompt.instructions, /Do not give investment advice/)
   assert.match(request.prompt.instructions, /Exclude standard safe-harbor/)
+  assert.match(request.prompt.instructions, /material one-time, discrete, valuation, investment/)
+  assert.match(request.prompt.instructions, /recurring operating performance/)
   assert.match(request.prompt.instructions, /unknown, not positive evidence/)
   assert.match(request.prompt.instructions, /official regulatory sources/)
   assert.equal(request.metadata.earningsEventId, 'event-1')
