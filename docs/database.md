@@ -16,7 +16,7 @@ companies
         ├── financial_metrics
         ├── financial_derived_metrics
         ├── financial_derived_metric_calculations
-        ├── extraction_runs
+        ├── extraction_runs ── extraction_reviews
         └── predictions ── evaluations
 
 job_runs records whether background jobs succeeded or failed.
@@ -205,6 +205,35 @@ Important fields:
 - `output` and `output_sha256`: the structured JSON and its fingerprint when the provider completed.
 - `validation_status`, `located_evidence`, and `validation_errors`: whether every claim passed
   validation, where each exact quote appeared, and any validation problem that requires review.
+
+### `extraction_reviews`
+
+Append-only human decisions about immutable qualitative extraction output. A review never changes
+the original `extraction_runs` row. Multiple reviews preserve history; the newest row by
+`created_at` and `id` represents the latest decision.
+
+Important fields:
+
+- `extraction_run_id` and `reviewed_output_sha256`: identify the exact extraction output that was
+  inspected and reject a review if its fingerprint does not match.
+- `decision`: `accepted`, `corrected`, or `rejected`.
+- `corrected_output`, `corrected_schema_version`, `corrected_output_sha256`, and
+  `corrected_located_evidence`: a complete, separately validated replacement when the reviewer
+  corrects the extraction.
+- `reviewer_label`, `notes`, and `review_version`: who performed the review, what they concluded,
+  and which review procedure they followed.
+
+Database triggers reject updates and deletes. An accepted review is allowed only for extraction
+output that already passed local validation. Later scoring should use the latest accepted output or
+the latest corrected output and must ignore rejected output.
+
+The worker records an accepted or rejected review with an explicit decision, reviewer label, and
+notes. Corrected reviews additionally require a JSON file containing the complete corrected output:
+
+```text
+pnpm worker:review-qualitative <extraction-run-id> --decision=accepted \
+  --reviewer-label=owner-manual-review --notes="Reviewed every claim and its evidence."
+```
 
 ### `predictions`
 

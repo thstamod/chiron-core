@@ -79,6 +79,7 @@ flowchart TD
 | `apps/worker/src/qualitative-evidence-passages.ts` | Splits source documents into stable evidence passages so the LLM selects evidence instead of copying quotes. |
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
+| `apps/worker/src/qualitative-extraction-review.ts` | Verifies and appends accepted, corrected, or rejected human review decisions without changing extraction history. |
 | `apps/worker/src/canonical-json.ts` | Serializes JSON in stable key order before reproducibility fingerprints are calculated. |
 | `apps/worker/src/content-hash.ts` | Creates SHA-256 fingerprints for original and derived files. |
 | `apps/worker/src/storage.ts` | Persists immutable files and safely handles concurrent uploads. |

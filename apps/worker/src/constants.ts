@@ -67,6 +67,11 @@ export const QualitativeExtractionLimit = {
   maximumOutputTokens: 2_000,
 } as const
 
+export const QualitativeReviewLimit = {
+  maximumReviewerLabelCharacters: 100,
+  maximumNotesCharacters: 4_000,
+} as const
+
 export const QualitativeProviderStatus = {
   completed: 'completed',
   refused: 'refused',
@@ -78,6 +83,16 @@ export const QualitativeProviderStatus = {
 export const QualitativeValidationStatus = {
   valid: 'valid',
   invalid: 'invalid',
+} as const
+
+export const QualitativeReviewDecision = {
+  accepted: 'accepted',
+  corrected: 'corrected',
+  rejected: 'rejected',
+} as const
+
+export const QualitativeReviewVersion = {
+  manual: 'manual-qualitative-review-v1',
 } as const
 
 export const LanguageModelProvider = {
@@ -206,10 +221,15 @@ export const WorkerCommand = {
   calculateFinancialDerivedMetrics: 'calculate-financial-derived-metrics',
   previewQualitativeExtraction: 'preview-qualitative',
   extractQualitative: 'extract-qualitative',
+  reviewQualitativeExtraction: 'review-qualitative',
 } as const
 
 export const WorkerCommandFlag = {
   executePaidRequest: '--execute-paid-request',
+  reviewDecision: '--decision=',
+  reviewerLabel: '--reviewer-label=',
+  reviewNotes: '--notes=',
+  correctedOutputFile: '--corrected-output-file=',
 } as const
 
 export const JobName = {
@@ -247,6 +267,7 @@ export const DatabaseTable = {
   financialDerivedMetrics: 'financial_derived_metrics',
   financialDerivedMetricCalculations: 'financial_derived_metric_calculations',
   extractionRuns: 'extraction_runs',
+  extractionReviews: 'extraction_reviews',
   jobRuns: 'job_runs',
 } as const
 

@@ -56,6 +56,11 @@ import {
 import { previewQualitativeExtraction } from './qualitative-preview.js'
 import { createOpenAIQualitativeExtractionProvider } from './openai-qualitative-provider.js'
 import { extractAndStoreQualitativeAnalysis } from './qualitative-extraction-run.js'
+import {
+  loadCorrectedQualitativeOutput,
+  parseQualitativeReviewDecision,
+  recordQualitativeExtractionReview,
+} from './qualitative-extraction-review.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -261,6 +266,59 @@ async function calculateFinancialDerivedMetrics(
   return { ...summary }
 }
 
+function requireCommandOption(commandArguments: string[], optionPrefix: string): string {
+  const matchingArguments = commandArguments.filter((argument) => (
+    argument.startsWith(optionPrefix)
+  ))
+  if (matchingArguments.length !== 1) {
+    throw new Error(`Expected exactly one ${optionPrefix} option`)
+  }
+  const value = matchingArguments[0]!.slice(optionPrefix.length).trim()
+  if (!value) throw new Error(`${optionPrefix} option cannot be empty`)
+  return value
+}
+
+function optionalCommandOption(
+  commandArguments: string[],
+  optionPrefix: string,
+): string | undefined {
+  const matchingArguments = commandArguments.filter((argument) => (
+    argument.startsWith(optionPrefix)
+  ))
+  if (matchingArguments.length > 1) {
+    throw new Error(`Expected at most one ${optionPrefix} option`)
+  }
+  const value = matchingArguments[0]?.slice(optionPrefix.length).trim()
+  if (matchingArguments.length === 1 && !value) {
+    throw new Error(`${optionPrefix} option cannot be empty`)
+  }
+  return value
+}
+
+function requireSinglePositionalArgument(
+  commandArguments: string[],
+  commandName: string,
+): string {
+  const positionalArguments = commandArguments.filter((argument) => !argument.startsWith('--'))
+  if (positionalArguments.length !== 1 || !positionalArguments[0]!.trim()) {
+    throw new Error(`${commandName} requires exactly one positional argument`)
+  }
+  return positionalArguments[0]!.trim()
+}
+
+function rejectUnknownCommandOptions(
+  commandArguments: string[],
+  allowedOptionPrefixes: string[],
+): void {
+  const unknownOptions = commandArguments.filter((argument) => (
+    argument.startsWith('--')
+    && !allowedOptionPrefixes.some((prefix) => argument.startsWith(prefix))
+  ))
+  if (unknownOptions.length > 0) {
+    throw new Error(`Unknown command options: ${unknownOptions.join(', ')}`)
+  }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
   const commandArguments = process.argv.slice(3).filter((argument) => argument !== '--')
@@ -354,6 +412,43 @@ async function main(): Promise<void> {
           new Date().toISOString(),
         ),
       )
+      console.log(JSON.stringify(summary, null, 2))
+      break
+    }
+    case WorkerCommand.reviewQualitativeExtraction: {
+      const reviewOptionPrefixes = [
+        WorkerCommandFlag.reviewDecision,
+        WorkerCommandFlag.reviewerLabel,
+        WorkerCommandFlag.reviewNotes,
+        WorkerCommandFlag.correctedOutputFile,
+      ]
+      rejectUnknownCommandOptions(commandArguments, reviewOptionPrefixes)
+      const extractionRunId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.reviewQualitativeExtraction,
+      )
+      const decision = parseQualitativeReviewDecision(
+        requireCommandOption(commandArguments, WorkerCommandFlag.reviewDecision),
+      )
+      const reviewerLabel = requireCommandOption(
+        commandArguments,
+        WorkerCommandFlag.reviewerLabel,
+      )
+      const notes = requireCommandOption(commandArguments, WorkerCommandFlag.reviewNotes)
+      const correctedOutputFile = optionalCommandOption(
+        commandArguments,
+        WorkerCommandFlag.correctedOutputFile,
+      )
+      const correctedOutput = correctedOutputFile
+        ? await loadCorrectedQualitativeOutput(correctedOutputFile)
+        : undefined
+      const summary = await recordQualitativeExtractionReview(client, {
+        extractionRunId,
+        decision,
+        reviewerLabel,
+        notes,
+        correctedOutput,
+      })
       console.log(JSON.stringify(summary, null, 2))
       break
     }
