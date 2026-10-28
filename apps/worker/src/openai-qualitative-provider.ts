@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { zodTextFormat } from 'openai/helpers/zod'
 import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses'
 import {
-  qualitativeExtractionSchemaForDocuments,
+  qualitativeExtractionSchemaForPassages,
 } from '@chiron/shared'
 import type { OpenAILanguageModelConfig } from './config.js'
 import {
@@ -152,8 +152,8 @@ export class OpenAIQualitativeExtractionProvider implements QualitativeExtractio
     const startedAt = new Date(startedMilliseconds).toISOString()
 
     try {
-      const responseSchema = qualitativeExtractionSchemaForDocuments(
-        request.allowedDocumentIds,
+      const responseSchema = qualitativeExtractionSchemaForPassages(
+        request.allowedPassageIds,
       )
       const response = await this.responsesParser.parse({
         model: this.model,

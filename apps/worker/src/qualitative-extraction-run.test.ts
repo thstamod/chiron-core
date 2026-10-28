@@ -39,7 +39,7 @@ const tokenUsage = {
   totalTokens: 1_200,
 }
 
-function extraction(guidanceQuote: string): QualitativeExtraction {
+function extraction(guidancePassageId: string): QualitativeExtraction {
   return {
     guidance: {
       status: 'provided',
@@ -48,7 +48,7 @@ function extraction(guidanceQuote: string): QualitativeExtraction {
         direction: 'maintained',
         period: 'full-year 2026',
         summary: 'Management maintained its demand outlook.',
-        evidence: [{ sourceDocumentId: currentDocument.documentId, quote: guidanceQuote }],
+        evidence: [{ passageId: guidancePassageId }],
       }],
       summary: 'Management maintained its demand outlook.',
       evidence: [],
@@ -85,8 +85,8 @@ function completedResult(output: QualitativeExtraction): QualitativeProviderResu
 test('builds a valid permanent record after exact evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v2',
-    completedResult(extraction(documentText)),
+    'baseline-v3',
+    completedResult(extraction('current-p0001')),
   )
 
   assert.equal(record.provider_status, QualitativeProviderStatus.completed)
@@ -100,15 +100,15 @@ test('builds a valid permanent record after exact evidence validation', () => {
 test('preserves completed output that fails evidence validation', () => {
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v2',
-    completedResult(extraction('This quote is not in the document.')),
+    'baseline-v3',
+    completedResult(extraction('current-p9999')),
   )
 
   assert.equal(record.provider_status, QualitativeProviderStatus.completed)
   assert.equal(record.validation_status, QualitativeValidationStatus.invalid)
   assert.notEqual(record.output, null)
   assert.equal(record.located_evidence, null)
-  assert.match(record.validation_errors?.[0] ?? '', /does not exactly match/)
+  assert.match(record.validation_errors?.[0] ?? '', /references unknown passage/)
 })
 
 test('builds an unsuccessful record without fake output or validation', () => {
@@ -128,7 +128,7 @@ test('builds an unsuccessful record without fake output or validation', () => {
   }
   const record = buildQualitativeExtractionRunRecord(
     preparedInput,
-    'baseline-v2',
+    'baseline-v3',
     failedResult,
   )
 

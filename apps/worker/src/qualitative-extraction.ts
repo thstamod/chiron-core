@@ -7,6 +7,11 @@ import {
 import { canonicalJson } from './canonical-json.js'
 import { calculateContentSha256 } from './content-hash.js'
 import { RuleVersion } from './constants.js'
+import {
+  createQualitativeEvidencePassages,
+  qualitativeEvidencePassageVersion,
+  type QualitativeEvidencePassage,
+} from './qualitative-evidence-passages.js'
 
 export type QualitativeDocumentRole = 'current' | 'previous'
 
@@ -39,6 +44,7 @@ export interface QualitativeExtractionInputManifest {
   cutoffAt: string
   schemaVersion: string
   inputSelectionVersion: string
+  evidencePassageVersion: string
   documents: QualitativeInputDocumentManifest[]
 }
 
@@ -46,6 +52,7 @@ export interface PreparedQualitativeExtractionInput {
   manifest: QualitativeExtractionInputManifest
   inputSha256: string
   documents: QualitativeSourceDocument[]
+  passages: QualitativeEvidencePassage[]
 }
 
 interface EvidenceReference {
@@ -59,7 +66,9 @@ export interface EvidenceTextMatch {
 }
 
 export interface LocatedQualitativeEvidence extends EvidenceReference {
-  matches: EvidenceTextMatch[]
+  sourceDocumentId: string
+  quote: string
+  match: EvidenceTextMatch
 }
 
 function documentRoleOrder(role: QualitativeDocumentRole): number {
@@ -159,13 +168,16 @@ export function prepareQualitativeExtractionInput(
     cutoffAt: new Date(cutoffTimestamp).toISOString(),
     schemaVersion: qualitativeExtractionSchemaVersion,
     inputSelectionVersion: RuleVersion.qualitativeInputSelection,
+    evidencePassageVersion: qualitativeEvidencePassageVersion,
     documents: documents.map(inputDocumentManifest),
   }
   const inputSha256 = calculateContentSha256(
     new TextEncoder().encode(canonicalJson(manifest)),
   )
 
-  return { manifest, inputSha256, documents }
+  const passages = createQualitativeEvidencePassages(documents)
+
+  return { manifest, inputSha256, documents, passages }
 }
 
 function evidenceReferences(extraction: QualitativeExtraction): EvidenceReference[] {
@@ -203,21 +215,6 @@ function evidenceReferences(extraction: QualitativeExtraction): EvidenceReferenc
   ]
 }
 
-function locateQuote(text: string, quote: string): EvidenceTextMatch[] {
-  const matches: EvidenceTextMatch[] = []
-  let searchFrom = 0
-  while (searchFrom <= text.length - quote.length) {
-    const startCharacter = text.indexOf(quote, searchFrom)
-    if (startCharacter === -1) break
-    matches.push({
-      startCharacter,
-      endCharacter: startCharacter + quote.length,
-    })
-    searchFrom = startCharacter + 1
-  }
-  return matches
-}
-
 function requireEvidence(
   condition: boolean,
   evidence: QualitativeEvidence[],
@@ -236,8 +233,9 @@ function requireEvidenceFromDocument(
   evidence: QualitativeEvidence[],
   documentId: string,
   fieldName: string,
+  passagesById: Map<string, QualitativeEvidencePassage>,
 ): void {
-  if (!evidence.some((item) => item.sourceDocumentId === documentId)) {
+  if (!evidence.some((item) => passagesById.get(item.passageId)?.sourceDocumentId === documentId)) {
     throw new Error(`${fieldName} requires evidence from the current document`)
   }
 }
@@ -245,6 +243,7 @@ function requireEvidenceFromDocument(
 function validateSemanticEvidenceRules(
   extraction: QualitativeExtraction,
   documents: QualitativeSourceDocument[],
+  passagesById: Map<string, QualitativeEvidencePassage>,
 ): void {
   const currentDocument = documents.find((document) => document.role === 'current')
   if (!currentDocument) {
@@ -271,6 +270,7 @@ function validateSemanticEvidenceRules(
       extraction.guidance.evidence,
       currentDocument.documentId,
       'Unclear guidance',
+      passagesById,
     )
   }
   extraction.guidance.items.forEach((item, index) => {
@@ -278,6 +278,7 @@ function validateSemanticEvidenceRules(
       item.evidence,
       currentDocument.documentId,
       `guidance.items[${index}]`,
+      passagesById,
     )
   })
 
@@ -294,6 +295,7 @@ function validateSemanticEvidenceRules(
       extraction.marginDirection.evidence,
       currentDocument.documentId,
       'A concrete margin direction',
+      passagesById,
     )
   }
 
@@ -313,6 +315,7 @@ function validateSemanticEvidenceRules(
       extraction.managementTone.evidence,
       currentDocument.documentId,
       'A concrete management tone',
+      passagesById,
     )
   }
 
@@ -321,6 +324,7 @@ function validateSemanticEvidenceRules(
       claim.evidence,
       currentDocument.documentId,
       `keyPositives[${index}]`,
+      passagesById,
     )
   })
   extraction.keyRisks.forEach((claim, index) => {
@@ -328,6 +332,7 @@ function validateSemanticEvidenceRules(
       claim.evidence,
       currentDocument.documentId,
       `keyRisks[${index}]`,
+      passagesById,
     )
   })
 
@@ -345,7 +350,9 @@ function validateSemanticEvidenceRules(
   )
 
   const evidenceDocumentIds = new Set(
-    extraction.managementTone.evidence.map((evidence) => evidence.sourceDocumentId),
+    extraction.managementTone.evidence.map(
+      (evidence) => passagesById.get(evidence.passageId)?.sourceDocumentId,
+    ),
   )
   if (
     !previousDocument
@@ -361,22 +368,24 @@ export function validateAndLocateQualitativeEvidence(
   documents: QualitativeSourceDocument[],
 ): { extraction: QualitativeExtraction; locatedEvidence: LocatedQualitativeEvidence[] } {
   const extraction = qualitativeExtractionSchema.parse(untrustedExtraction)
-  const documentsById = new Map(documents.map((document) => [document.documentId, document]))
+  const passages = createQualitativeEvidencePassages(documents)
+  const passagesById = new Map(passages.map((passage) => [passage.passageId, passage]))
   const locatedEvidence = evidenceReferences(extraction).map((reference) => {
-    const sourceDocument = documentsById.get(reference.evidence.sourceDocumentId)
-    if (!sourceDocument) {
-      throw new Error(
-        `${reference.fieldPath} references unknown document `
-        + reference.evidence.sourceDocumentId,
-      )
+    const passage = passagesById.get(reference.evidence.passageId)
+    if (!passage) {
+      throw new Error(`${reference.fieldPath} references unknown passage ${reference.evidence.passageId}`)
     }
-    const matches = locateQuote(sourceDocument.text, reference.evidence.quote)
-    if (matches.length === 0) {
-      throw new Error(`${reference.fieldPath} does not exactly match its source document`)
+    return {
+      ...reference,
+      sourceDocumentId: passage.sourceDocumentId,
+      quote: passage.text,
+      match: {
+        startCharacter: passage.startCharacter,
+        endCharacter: passage.endCharacter,
+      },
     }
-    return { ...reference, matches }
   })
-  validateSemanticEvidenceRules(extraction, documents)
+  validateSemanticEvidenceRules(extraction, documents, passagesById)
 
   return { extraction, locatedEvidence }
 }

@@ -52,10 +52,15 @@ export const RuleVersion = {
   financialMetricExtraction: 'sec-xbrl-financial-metrics-v1',
   financialDerivedMetrics: 'financial-derived-metrics-v1',
   qualitativeInputSelection: 'earnings-release-input-v1',
+  qualitativeEvidencePassages: 'evidence-passages-v1',
 } as const
 
 export const PromptVersion = {
-  baselineQualitativeExtraction: 'baseline-v2',
+  baselineQualitativeExtraction: 'baseline-v3',
+} as const
+
+export const QualitativeEvidencePassageLimit = {
+  maximumCharacters: 1_200,
 } as const
 
 export const QualitativeExtractionLimit = {

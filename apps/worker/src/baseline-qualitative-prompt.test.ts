@@ -57,9 +57,9 @@ test('builds the versioned baseline request without provider-specific fields', (
   assert.match(request.prompt.instructions, /Do not give investment advice/)
   assert.equal(request.metadata.earningsEventId, 'event-1')
   assert.equal(request.metadata.inputFingerprint, preparedInput.inputSha256)
-  assert.deepEqual(request.allowedDocumentIds, [
-    '11111111-1111-4111-8111-111111111111',
-    '22222222-2222-4222-8222-222222222222',
+  assert.deepEqual(request.allowedPassageIds, [
+    'current-p0001',
+    'previous-p0001',
   ])
   assert.equal(request.metadata.schemaVersion, preparedInput.manifest.schemaVersion)
   assert.equal(
@@ -74,6 +74,7 @@ test('builds the versioned baseline request without provider-specific fields', (
   )
   assert.match(request.prompt.documentInput, /Current earnings release text\./)
   assert.match(request.prompt.documentInput, /Previous earnings release text\./)
+  assert.match(request.prompt.documentInput, /BEGIN_PASSAGE current-p0001/)
 })
 
 test('builds a valid request when no previous document is available', () => {

@@ -53,10 +53,7 @@ function comparativeExtraction(): QualitativeExtraction {
         direction: 'maintained',
         period: 'full-year 2026',
         summary: 'Management maintained its demand outlook.',
-        evidence: [{
-          sourceDocumentId: currentDocumentId,
-          quote: 'Management expects continued demand.',
-        }],
+        evidence: [{ passageId: 'current-p0001' }],
       }],
       summary: 'Management maintained its demand outlook.',
       evidence: [],
@@ -64,39 +61,24 @@ function comparativeExtraction(): QualitativeExtraction {
     marginDirection: {
       direction: 'improving',
       summary: 'Revenue growth supports an improving direction.',
-      evidence: [{
-        sourceDocumentId: currentDocumentId,
-        quote: 'Revenue increased 20%.',
-      }],
+      evidence: [{ passageId: 'current-p0001' }],
     },
     managementTone: {
       currentTone: 'positive',
       changeFromPrevious: 'more_positive',
       summary: 'Management used stronger demand language than in the previous release.',
       evidence: [
-        {
-          sourceDocumentId: currentDocumentId,
-          quote: 'Management expects continued demand.',
-        },
-        {
-          sourceDocumentId: previousDocumentId,
-          quote: 'Management expects stable demand.',
-        },
+        { passageId: 'current-p0001' },
+        { passageId: 'previous-p0001' },
       ],
     },
     keyPositives: [{
       statement: 'Revenue growth accelerated.',
-      evidence: [{
-        sourceDocumentId: currentDocumentId,
-        quote: 'Revenue increased 20%.',
-      }],
+      evidence: [{ passageId: 'current-p0001' }],
     }],
     keyRisks: [{
       statement: 'Supply remains constrained.',
-      evidence: [{
-        sourceDocumentId: currentDocumentId,
-        quote: 'Supply constraints remain.',
-      }],
+      evidence: [{ passageId: 'current-p0001' }],
     }],
     summary: 'Revenue growth accelerated while management remained positive about demand.',
     sourceLimitations: [],
@@ -120,51 +102,36 @@ function currentOnlyExtraction(): QualitativeExtraction {
     currentTone: 'positive',
     changeFromPrevious: 'unavailable',
     summary: 'Management expects continued demand.',
-    evidence: [{
-      sourceDocumentId: currentDocumentId,
-      quote: 'Management expects continued demand.',
-    }],
+    evidence: [{ passageId: 'current-p0001' }],
   }
   return extraction
 }
 
-test('accepts a valid structured extraction and locates exact evidence', () => {
+test('accepts a valid structured extraction and derives exact passage evidence', () => {
   const result = validateAndLocateQualitativeEvidence(
     comparativeExtraction(),
     [currentDocument, previousDocument],
   )
 
   assert.equal(result.locatedEvidence.length, 6)
-  assert.deepEqual(result.locatedEvidence[0]?.matches, [{
-    startCharacter: 23,
-    endCharacter: 59,
-  }])
+  assert.equal(result.locatedEvidence[0]?.sourceDocumentId, currentDocumentId)
+  assert.equal(result.locatedEvidence[0]?.quote, currentDocument.text)
+  assert.deepEqual(result.locatedEvidence[0]?.match, {
+    startCharacter: 0,
+    endCharacter: currentDocument.text.length,
+  })
 })
 
-test('rejects an evidence quote that is not present verbatim', () => {
+test('rejects evidence that references an unknown passage', () => {
   const extraction = comparativeExtraction()
-  extraction.keyRisks[0]!.evidence[0]!.quote = 'Supply constraints improved.'
+  extraction.keyRisks[0]!.evidence[0]!.passageId = 'current-p9999'
 
   assert.throws(
     () => validateAndLocateQualitativeEvidence(
       extraction,
       [currentDocument, previousDocument],
     ),
-    /does not exactly match its source document/,
-  )
-})
-
-test('rejects evidence that references an unknown document', () => {
-  const extraction = comparativeExtraction()
-  extraction.keyRisks[0]!.evidence[0]!.sourceDocumentId =
-    '33333333-3333-4333-8333-333333333333'
-
-  assert.throws(
-    () => validateAndLocateQualitativeEvidence(
-      extraction,
-      [currentDocument, previousDocument],
-    ),
-    /references unknown document/,
+    /references unknown passage/,
   )
 })
 
@@ -249,10 +216,7 @@ test('rejects classified items when guidance is marked not provided', () => {
 
 test('requires current-document evidence for current guidance', () => {
   const extraction = comparativeExtraction()
-  extraction.guidance.items[0]!.evidence = [{
-    sourceDocumentId: previousDocumentId,
-    quote: 'Management expects stable demand.',
-  }]
+  extraction.guidance.items[0]!.evidence = [{ passageId: 'previous-p0001' }]
 
   assert.throws(
     () => validateAndLocateQualitativeEvidence(
@@ -265,10 +229,7 @@ test('requires current-document evidence for current guidance', () => {
 
 test('requires current-document evidence for current positives and risks', () => {
   const extraction = comparativeExtraction()
-  extraction.keyRisks[0]!.evidence = [{
-    sourceDocumentId: previousDocumentId,
-    quote: 'Management expects stable demand.',
-  }]
+  extraction.keyRisks[0]!.evidence = [{ passageId: 'previous-p0001' }]
 
   assert.throws(
     () => validateAndLocateQualitativeEvidence(

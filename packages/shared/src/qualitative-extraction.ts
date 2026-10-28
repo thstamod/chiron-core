@@ -61,11 +61,10 @@ export const managementToneChangeValues = [
   'unclear',
 ] as const
 
-export const qualitativeExtractionSchemaVersion = 'qualitative-earnings-v2'
+export const qualitativeExtractionSchemaVersion = 'qualitative-earnings-v3'
 
 export const qualitativeEvidenceSchema = z.object({
-  sourceDocumentId: z.uuid(),
-  quote: z.string().min(1).max(1_000),
+  passageId: z.string().regex(/^(current|previous)-p\d{4}$/),
 }).strict()
 
 export type QualitativeEvidence = z.infer<typeof qualitativeEvidenceSchema>
@@ -121,18 +120,17 @@ export const qualitativeExtractionSchema = createQualitativeExtractionSchema(
   qualitativeEvidenceSchema,
 )
 
-export function qualitativeExtractionSchemaForDocuments(
-  documentIds: string[],
+export function qualitativeExtractionSchemaForPassages(
+  passageIds: string[],
 ): typeof qualitativeExtractionSchema {
-  const uniqueDocumentIds = [...new Set(documentIds)]
-  if (uniqueDocumentIds.length === 0) {
-    throw new Error('Qualitative extraction schema requires at least one document ID')
+  const uniquePassageIds = [...new Set(passageIds)]
+  if (uniquePassageIds.length === 0) {
+    throw new Error('Qualitative extraction schema requires at least one passage ID')
   }
-  uniqueDocumentIds.forEach((documentId) => z.uuid().parse(documentId))
-  const allowedDocumentIds = uniqueDocumentIds as [string, ...string[]]
+  uniquePassageIds.forEach((passageId) => qualitativeEvidenceSchema.shape.passageId.parse(passageId))
+  const allowedPassageIds = uniquePassageIds as [string, ...string[]]
   const constrainedEvidenceSchema = z.object({
-    sourceDocumentId: z.enum(allowedDocumentIds),
-    quote: z.string().min(1).max(1_000),
+    passageId: z.enum(allowedPassageIds),
   }).strict()
 
   return createQualitativeExtractionSchema(constrainedEvidenceSchema)
