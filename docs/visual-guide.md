@@ -413,6 +413,37 @@ flowchart TD
 
 `scoreLabel()` formats positive numbers with a `+`. The example records supply scores, guidance and results. The demo's displayed processing stages illustrate the intended product; they are not evidence that extraction or prediction jobs are running. Some navigation links and buttons are placeholders.
 
+### Planned review and correction interface
+
+The sidebar's **Review queue** link is currently a placeholder. When the dashboard reads live data,
+the queue should separate extractions that are unreviewed, invalid, accepted, corrected, or rejected.
+It must not present a technically valid LLM response as human-reviewed.
+
+An event-details view should display the latest accepted or corrected extraction by default and label
+its review state clearly. It should also allow the researcher to inspect:
+
+- the immutable original LLM output;
+- the effective output that future scoring will use;
+- which fields changed in a correction;
+- reviewer notes and review timestamps;
+- the exact source evidence supporting the original and corrected values;
+- the complete append-only review history.
+
+```mermaid
+flowchart LR
+    ORIGINAL[Immutable LLM output] --> REVIEW[Human review]
+    REVIEW -->|accepted| ACCEPTED[Accepted output]
+    REVIEW -->|corrected| CORRECTED[Corrected output]
+    REVIEW -->|rejected| REJECTED[Excluded from scoring]
+    ACCEPTED --> EFFECTIVE[Effective extraction]
+    CORRECTED --> EFFECTIVE
+    EFFECTIVE --> SCORE[Future scoring input]
+```
+
+The dashboard must never overwrite the original output. A correction creates a separate review
+record, and the UI explains why that newer version is effective. Invalid or rejected outputs cannot
+be used for scoring unless a later corrected review supplies a valid effective output.
+
 ## 14. The future evaluation pipeline
 
 The end-to-end jobs below are planned; they do not exist yet.
