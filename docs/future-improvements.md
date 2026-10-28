@@ -489,6 +489,47 @@ storage would be needed for that final gap and must be evaluated against privacy
 - Manual recovery requires an explicit decision and records its relationship to the earlier request.
 - Logs never contain source documents, LLM output, or API credentials.
 
+### Revalidate historical outputs after validation-rule changes
+
+**Status:** Agreed, not implemented
+
+**Priority:** Post-MVP, after repeated validation-rule changes or a larger extraction history
+
+#### Current behavior
+
+An extraction keeps the validation result produced when it originally ran. If a later code change
+fixes an overly strict validation rule, earlier invalid rows remain immutable and must be reviewed
+manually. This preserves the historical result but creates repeated work when the same technical
+validation issue affected several events.
+
+#### Proposed behavior
+
+1. Store the semantic-validation rule version used for every new extraction and review.
+2. Add a free dry-run command that checks historical invalid outputs against a selected newer
+   validation version without calling the LLM or changing the database.
+3. Report which outputs now pass unchanged, which still fail, and why.
+4. After explicit confirmation, append a separate `revalidated` review record for unchanged outputs
+   that pass the newer validator. Never update the original extraction row or its original status.
+5. Keep content corrections separate. Missing risks, incorrect tone, or other financial-interpretation
+   changes still require a human-reviewed `corrected` record.
+6. Process records in bounded pages so a large history does not create an unbounded database job.
+
+#### What this improves
+
+- Avoids repeating paid LLM requests when only a local validation rule changed.
+- Applies a proven technical fix consistently across affected historical outputs.
+- Preserves which rule produced the original result and which newer rule accepted it.
+- Keeps human judgment responsible for changes to the extracted financial meaning.
+
+#### Acceptance checks
+
+- Dry-run mode performs no database writes and no provider requests.
+- Revalidation is deterministic for the same output, evidence, source documents, and rule version.
+- Every appended revalidation identifies the original extraction and both validation-rule versions.
+- The original extraction status and output remain unchanged.
+- A changed output cannot be labeled `revalidated`; it must use the correction workflow.
+- The command requires explicit confirmation before appending any records.
+
 ### Add a server-side GraphQL API for the live dashboard
 
 **Status:** Agreed, not implemented
