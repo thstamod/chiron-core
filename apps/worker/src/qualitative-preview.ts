@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildBaselineQualitativeProviderRequest } from './baseline-qualitative-prompt.js'
 import { buildOpenAIQualitativeResponseFormat } from './openai-qualitative-provider.js'
+import type { PreparedQualitativeExtractionInput } from './qualitative-extraction.js'
 import { loadPreparedQualitativeExtractionInput } from './qualitative-input-loader.js'
 
 export interface QualitativeExtractionPreview {
@@ -10,6 +11,7 @@ export interface QualitativeExtractionPreview {
   schemaVersion: string
   inputSelectionVersion: string
   evidencePassageVersion: string
+  sourceCoverage: PreparedQualitativeExtractionInput['manifest']['sourceCoverage']
   inputFingerprint: string
   documents: {
     documentId: string
@@ -57,6 +59,7 @@ export async function previewQualitativeExtraction(
     schemaVersion: request.metadata.schemaVersion,
     inputSelectionVersion: request.metadata.inputSelectionVersion,
     evidencePassageVersion: preparedInput.manifest.evidencePassageVersion,
+    sourceCoverage: preparedInput.manifest.sourceCoverage,
     inputFingerprint: request.metadata.inputFingerprint,
     documents: preparedInput.manifest.documents.map((document) => ({
       documentId: document.documentId,

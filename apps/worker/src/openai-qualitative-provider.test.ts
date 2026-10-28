@@ -44,7 +44,7 @@ const providerRequest: QualitativeProviderRequest = {
     inputSelectionVersion: 'earnings-release-input-v1',
   },
   prompt: {
-    version: 'baseline-v4',
+    version: 'baseline-v5',
     instructions: 'Extract only supported qualitative facts.',
     documentInput: 'BEGIN_DOCUMENT\nDocument text\nEND_DOCUMENT',
   },

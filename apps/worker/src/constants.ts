@@ -53,15 +53,34 @@ export const RuleVersion = {
   financialDerivedMetrics: 'financial-derived-metrics-v1',
   qualitativeInputSelection: 'earnings-release-input-v1',
   qualitativeEvidencePassages: 'evidence-passages-v1',
+  qualitativeSourceCoverage: 'earnings-release-source-coverage-v1',
 } as const
 
 export const PromptVersion = {
-  baselineQualitativeExtraction: 'baseline-v4',
+  baselineQualitativeExtraction: 'baseline-v5',
 } as const
 
 export const QualitativeEvidencePassageLimit = {
   maximumCharacters: 1_200,
 } as const
+
+export const QualitativeSourceScope = {
+  currentEarningsRelease: 'current_earnings_release',
+  previousEarningsRelease: 'previous_earnings_release',
+  secLegalAndRiskSections: 'sec_legal_and_risk_sections',
+  officialRegulatorySources: 'official_regulatory_sources',
+  externalNews: 'external_news',
+} as const
+
+export type QualitativeSourceScopeValue =
+  typeof QualitativeSourceScope[keyof typeof QualitativeSourceScope]
+
+export const QualitativeRiskAbsenceMeaning = {
+  unknownNotPositive: 'unknown_not_positive',
+} as const
+
+export type QualitativeRiskAbsenceMeaningValue =
+  typeof QualitativeRiskAbsenceMeaning[keyof typeof QualitativeRiskAbsenceMeaning]
 
 export const QualitativeExtractionLimit = {
   maximumOutputTokens: 2_000,

@@ -55,6 +55,9 @@ test('builds the versioned baseline request without provider-specific fields', (
     QualitativeExtractionLimit.maximumOutputTokens,
   )
   assert.match(request.prompt.instructions, /Do not give investment advice/)
+  assert.match(request.prompt.instructions, /Exclude standard safe-harbor/)
+  assert.match(request.prompt.instructions, /unknown, not positive evidence/)
+  assert.match(request.prompt.instructions, /official regulatory sources/)
   assert.equal(request.metadata.earningsEventId, 'event-1')
   assert.equal(request.metadata.inputFingerprint, preparedInput.inputSha256)
   assert.equal(request.metadata.schemaVersion, preparedInput.manifest.schemaVersion)

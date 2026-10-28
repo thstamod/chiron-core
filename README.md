@@ -85,7 +85,10 @@ pnpm worker:preview-qualitative <earnings-event-id>
 
 The preview downloads and verifies the current and optional previous Exhibit 99.1 readable text,
 then prints only document metadata, fingerprints, character counts, and a rough token estimate. It
-does not print document text, use the OpenAI key, write an extraction row, or make a paid request.
+also reports which source categories are included and excluded. It does not print document text,
+use the OpenAI key, write an extraction row, or make a paid request. The MVP does not treat an empty
+risk list as evidence that a company is safe; it means no event-specific risk was found in the
+supplied releases.
 
 After reviewing the preview, one event can be extracted with an explicitly paid manual command:
 

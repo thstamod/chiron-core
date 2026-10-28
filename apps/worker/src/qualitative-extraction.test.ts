@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { qualitativeExtractionSchema, type QualitativeExtraction } from '@chiron/shared'
+import { canonicalJson } from './canonical-json.js'
 import {
   prepareQualitativeExtractionInput,
   validateAndLocateQualitativeEvidence,
   type QualitativeSourceDocument,
 } from './qualitative-extraction.js'
 import { calculateContentSha256 } from './content-hash.js'
+import {
+  QualitativeRiskAbsenceMeaning,
+  QualitativeSourceScope,
+  RuleVersion,
+} from './constants.js'
 
 const currentDocumentId = '11111111-1111-4111-8111-111111111111'
 const previousDocumentId = '22222222-2222-4222-8222-222222222222'
@@ -283,6 +289,54 @@ test('produces the same fingerprint regardless of document input order', () => {
 
   assert.equal(left.inputSha256, right.inputSha256)
   assert.deepEqual(left.manifest, right.manifest)
+})
+
+test('records included and excluded source coverage in the immutable manifest', () => {
+  const withPrevious = prepareQualitativeExtractionInput(
+    'event-1',
+    '2026-10-21T00:00:00.000Z',
+    [currentDocument, previousDocument],
+  )
+  const currentOnly = prepareQualitativeExtractionInput(
+    'event-1',
+    '2026-10-21T00:00:00.000Z',
+    [currentDocument],
+  )
+
+  assert.deepEqual(withPrevious.manifest.sourceCoverage, {
+    version: RuleVersion.qualitativeSourceCoverage,
+    includedScopes: [
+      QualitativeSourceScope.currentEarningsRelease,
+      QualitativeSourceScope.previousEarningsRelease,
+    ],
+    excludedScopes: [
+      QualitativeSourceScope.secLegalAndRiskSections,
+      QualitativeSourceScope.officialRegulatorySources,
+      QualitativeSourceScope.externalNews,
+    ],
+    riskAbsenceMeaning: QualitativeRiskAbsenceMeaning.unknownNotPositive,
+  })
+  assert.ok(
+    currentOnly.manifest.sourceCoverage.excludedScopes.includes(
+      QualitativeSourceScope.previousEarningsRelease,
+    ),
+  )
+  assert.notEqual(withPrevious.inputSha256, currentOnly.inputSha256)
+})
+
+test('keeps the existing document fingerprint compatible after adding coverage metadata', () => {
+  const preparedInput = prepareQualitativeExtractionInput(
+    'event-1',
+    '2026-10-21T00:00:00.000Z',
+    [currentDocument, previousDocument],
+  )
+  const { sourceCoverage, ...fingerprintedInput } = preparedInput.manifest
+  const compatibleFingerprint = calculateContentSha256(
+    new TextEncoder().encode(canonicalJson(fingerprintedInput)),
+  )
+
+  assert.equal(sourceCoverage.version, RuleVersion.qualitativeSourceCoverage)
+  assert.equal(preparedInput.inputSha256, compatibleFingerprint)
 })
 
 test('normalizes equivalent timestamps before fingerprinting', () => {

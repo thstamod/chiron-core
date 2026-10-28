@@ -75,7 +75,7 @@ flowchart TD
 | `apps/worker/src/qualitative-input-loader.ts` | Selects and verifies one current and optional previous earnings release for a controlled extraction. |
 | `apps/worker/src/qualitative-preview.ts` | Reports the exact input manifest and a rough size estimate without calling an LLM. |
 | `apps/worker/src/qualitative-provider.ts` | Defines the provider-independent request, result, usage, and failure contract for qualitative extraction. |
-| `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v4` prompt from reproducible current and previous documents. |
+| `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v5` prompt from reproducible current and previous documents. |
 | `apps/worker/src/qualitative-evidence-passages.ts` | Splits source documents into stable evidence passages so the LLM selects evidence instead of copying quotes. |
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
@@ -436,6 +436,12 @@ flowchart TD
 ```
 
 The **analysis cutoff** is the latest time from which information is allowed into a prediction. A **benchmark** is a comparison, such as the S&P 500 or a group of companies in the same industry. A **baseline** is a simpler approach used to check whether our extra analysis adds value.
+
+The signal score and source coverage must remain separate. The MVP records which source categories
+were included or excluded from each qualitative input. Finding no risk in the supplied earnings
+releases means **unknown**, not **safe**, and cannot add positive points. Future scoring can show a
+coverage warning or confidence label, but it must not silently convert missing information into a
+better score.
 
 For example, an analysis completed after market close cannot claim the earlier closing price as an available entry. Historical grouping must also filter each source by its availability time; a later report or amendment cannot be used in an earlier prediction.
 

@@ -198,7 +198,10 @@ Important fields:
   input-selection and extraction setup.
 - `provider_name`, `provider_request_id`, `model_name`, and `resolved_model_name`: which provider
   and model handled the request.
-- `input_manifest`: the source documents supplied to the model.
+- `input_manifest`: the source documents supplied to the model and deterministic source-coverage
+  metadata listing what was and was not examined. For the MVP, an empty extracted risk list means
+  only that no event-specific risk was found in the supplied earnings releases. It is not evidence
+  that the company has no risks and must not add positive points to a future score.
 - `provider_status`, `failure_reason`, and `retryable`: whether the request completed and why it did
   not when unsuccessful. `retryable` is classification metadata; it does not trigger another call.
 - `started_at`, `finished_at`, `duration_milliseconds`, and `token_usage`: cost and latency evidence.

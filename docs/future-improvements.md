@@ -683,6 +683,51 @@ PDF would also require a separate versioned converter.
 - Extraction warnings are stored with the document text version.
 - A new converter version does not overwrite earlier text artifacts.
 
+### Broaden material-risk coverage beyond earnings releases
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required before risk signals materially influence live or commercial scoring
+
+#### Current behavior
+
+The MVP qualitative extraction reads the current earnings release and, when available, the previous
+earnings release. It can find risks management discusses there, but it does not yet inspect the
+legal-proceedings and risk-factor sections of periodic SEC reports, official regulator publications,
+or external news. The immutable input manifest records those exclusions. No extracted risk means
+"not found in the supplied releases," not "the company has no risks."
+
+#### Proposed behavior
+
+1. Ingest relevant `10-Q` and `10-K` legal-proceedings and risk-factor sections, plus material
+   non-earnings `8-K` filings.
+2. Compare each SEC section with its previous version so new, increased, reduced, and removed risks
+   can be distinguished from unchanged boilerplate.
+3. Add timestamped official regulatory sources, such as regulator decisions or case updates, before
+   considering broader third-party news.
+4. Store the original source, publication time, first-seen time, exact evidence, extraction version,
+   and correction history for every risk claim.
+5. Allow only sources available by the prediction cutoff into the immutable prediction snapshot.
+6. Keep source coverage separate from the signal score. Missing sources produce an explicit warning
+   or confidence limitation, never positive score points.
+7. Add external news only after source licensing, timestamp reliability, cost, and extraction quality
+   have been evaluated.
+
+#### What this improves
+
+- Reduces the chance that a score overlooks a material legal or regulatory issue absent from the
+  earnings release.
+- Makes changed risks more useful than a repeated generic list.
+- Makes clear whether a result is based on narrow earnings-release evidence or broader coverage.
+
+#### Acceptance checks
+
+- Every risk claim links to exact evidence and point-in-time source metadata.
+- A source published or first discovered after the cutoff cannot affect an earlier prediction.
+- The dashboard clearly distinguishes "no risk found in examined sources" from "no company risk."
+- An empty risk list never improves the score.
+- Reprocessing with broader coverage creates a new versioned result and preserves the earlier one.
+
 ### Record material company news as evaluation context
 
 **Status:** Agreed, not implemented

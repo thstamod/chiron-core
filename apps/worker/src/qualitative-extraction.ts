@@ -6,7 +6,13 @@ import {
 } from '@chiron/shared'
 import { canonicalJson } from './canonical-json.js'
 import { calculateContentSha256 } from './content-hash.js'
-import { RuleVersion } from './constants.js'
+import {
+  QualitativeRiskAbsenceMeaning,
+  QualitativeSourceScope,
+  RuleVersion,
+  type QualitativeRiskAbsenceMeaningValue,
+  type QualitativeSourceScopeValue,
+} from './constants.js'
 import {
   createQualitativeEvidencePassages,
   qualitativeEvidencePassageVersion,
@@ -45,6 +51,12 @@ export interface QualitativeExtractionInputManifest {
   schemaVersion: string
   inputSelectionVersion: string
   evidencePassageVersion: string
+  sourceCoverage: {
+    version: string
+    includedScopes: QualitativeSourceScopeValue[]
+    excludedScopes: QualitativeSourceScopeValue[]
+    riskAbsenceMeaning: QualitativeRiskAbsenceMeaningValue
+  }
   documents: QualitativeInputDocumentManifest[]
 }
 
@@ -169,10 +181,29 @@ export function prepareQualitativeExtractionInput(
     schemaVersion: qualitativeExtractionSchemaVersion,
     inputSelectionVersion: RuleVersion.qualitativeInputSelection,
     evidencePassageVersion: qualitativeEvidencePassageVersion,
+    sourceCoverage: {
+      version: RuleVersion.qualitativeSourceCoverage,
+      includedScopes: [
+        QualitativeSourceScope.currentEarningsRelease,
+        ...(previousDocumentCount === 1
+          ? [QualitativeSourceScope.previousEarningsRelease]
+          : []),
+      ],
+      excludedScopes: [
+        ...(previousDocumentCount === 0
+          ? [QualitativeSourceScope.previousEarningsRelease]
+          : []),
+        QualitativeSourceScope.secLegalAndRiskSections,
+        QualitativeSourceScope.officialRegulatorySources,
+        QualitativeSourceScope.externalNews,
+      ],
+      riskAbsenceMeaning: QualitativeRiskAbsenceMeaning.unknownNotPositive,
+    },
     documents: documents.map(inputDocumentManifest),
   }
+  const { sourceCoverage: _sourceCoverage, ...fingerprintedInput } = manifest
   const inputSha256 = calculateContentSha256(
-    new TextEncoder().encode(canonicalJson(manifest)),
+    new TextEncoder().encode(canonicalJson(fingerprintedInput)),
   )
 
   const passages = createQualitativeEvidencePassages(documents)
