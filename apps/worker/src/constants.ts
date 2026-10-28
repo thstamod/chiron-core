@@ -114,6 +114,14 @@ export const QualitativeReviewVersion = {
   manual: 'manual-qualitative-review-v1',
 } as const
 
+export const QualitativeEffectiveOutputSource = {
+  original: 'original',
+  correctedReview: 'corrected_review',
+} as const
+
+export type QualitativeEffectiveOutputSourceValue =
+  typeof QualitativeEffectiveOutputSource[keyof typeof QualitativeEffectiveOutputSource]
+
 export const LanguageModelProvider = {
   openAi: 'openai',
 } as const

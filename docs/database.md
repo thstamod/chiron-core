@@ -215,6 +215,13 @@ Append-only human decisions about immutable qualitative extraction output. A rev
 the original `extraction_runs` row. Multiple reviews preserve history; the newest row by
 `created_at` and `id` represents the latest decision.
 
+The application selects an effective qualitative extraction without changing either table. For
+each extraction run, its newest review controls whether that run is accepted, corrected, or
+rejected. Among reviewed usable runs for one earnings event, the newest review wins. Unreviewed
+runs are ignored, accepted reviews use the fingerprint-verified original output, corrected reviews
+use their fingerprint-verified corrected output, and rejected runs are excluded. The selector
+returns both original and effective data so the dashboard can preserve the audit trail.
+
 Important fields:
 
 - `extraction_run_id` and `reviewed_output_sha256`: identify the exact extraction output that was
