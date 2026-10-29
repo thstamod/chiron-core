@@ -333,6 +333,10 @@ results; they do not decide whether a stock is attractive.
 erDiagram
     companies ||--o{ sec_filings : submits
     companies ||--o{ earnings_events : has
+    companies o|--o| price_instruments : trades_as
+    companies ||--o{ company_benchmark_assignments : compares_with
+    price_instruments ||--o{ company_benchmark_assignments : benchmark
+    price_instruments ||--o{ daily_price_observations : records
     earnings_events o|--o{ sec_filings : groups
     sec_filings o|--o{ documents : contains
     earnings_events o|--o{ documents : gathers
@@ -359,6 +363,9 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 | `financial_derived_metrics` | Versioned revenue-growth and margin calculations with exact source metric IDs. |
 | `financial_derived_metric_calculations` | Input manifests, warnings and completion records for derived calculations. |
 | `extraction_runs` | Created for future LLM outputs and their input evidence. |
+| `price_instruments` | Company stocks and market/sector comparison symbols configured for price collection. |
+| `company_benchmark_assignments` | Versioned assumptions connecting each company to market and sector comparisons. |
+| `daily_price_observations` | Append-only versions of provider end-of-day price and volume values. |
 | `predictions` | Created for future research scores and snapshots. Update/delete protection is still planned. |
 | `evaluations` | Created for future comparisons of stock and benchmark returns. |
 
@@ -447,7 +454,8 @@ be used for scoring unless a later corrected review supplies a valid effective o
 
 ## 14. The future evaluation pipeline
 
-The end-to-end jobs below are planned; they do not exist yet.
+The end-to-end jobs below are planned. The database foundation for versioned daily prices and
+benchmark mappings exists, but the Tiingo collection job does not exist yet.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
 validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost

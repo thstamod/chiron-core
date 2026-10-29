@@ -11,6 +11,8 @@ file.
 companies
   ├── sec_filings ── documents ── document_text_versions
   │                           └── financial_metric_extractions
+  ├── price_instruments ── daily_price_observations
+  ├── company_benchmark_assignments ── price_instruments
   └── earnings_events
         ├── documents
         ├── financial_metrics
@@ -38,6 +40,59 @@ Important fields:
 - `cik`: the permanent identifier assigned by the SEC.
 - `sector`: the broad business group used later for benchmark comparisons.
 - `is_active`: whether scheduled jobs should currently monitor the company.
+
+### `price_instruments`
+
+The company stocks and comparison symbols whose daily prices Chiron can collect. A comparison
+symbol is called a **benchmark**. For example, `SPY` is the first broad-market benchmark and
+`XLK` is the first technology-sector benchmark.
+
+Important fields:
+
+- `company_id`: connects a company stock to the watchlist. Benchmark rows do not have a company.
+- `instrument_type`: whether the row is a company stock, market benchmark, or sector benchmark.
+- `provider_name` and `provider_symbol`: the price source and the exact symbol requested from it.
+- `is_active`: whether future price jobs should currently collect this symbol.
+
+The initial migration creates instruments for the configured companies and the `SPY`, `XLK`,
+`XLY`, and `XLC` benchmark ETFs. An **ETF** is a tradable fund holding a group of securities. Here
+it is used only as a practical comparison, not as a claim that it perfectly represents a company.
+
+### `company_benchmark_assignments`
+
+Append-only mappings from a company to one broad-market benchmark and one sector benchmark. A new
+mapping creates a new row rather than rewriting history.
+
+Important fields:
+
+- `benchmark_role`: whether the comparison is for the whole market or the company's sector.
+- `mapping_version`: the named set of mapping assumptions.
+- `applicable_from`: the first date on which the mapping may be selected.
+- `rationale`: the understandable reason for choosing that comparison.
+
+The `benchmark-proxy-v1` mappings begin on 29 October 2026. They are research assumptions that
+must be validated; they are not financial facts. Applying a mapping to earlier historical events
+requires a separate researched backfill rather than silently using today's classification.
+
+### `daily_price_observations`
+
+Versioned end-of-day values returned by the price provider. **End of day** means one summary row
+for a completed trading session, containing its opening, highest, lowest, and closing prices and
+trading volume.
+
+Important fields:
+
+- `trading_date`: the market session described by the row.
+- `open_price`, `high_price`, `low_price`, and `close_price`: values as reported for that day.
+- `adjusted_*`: values changed by the provider to account for events such as stock splits and cash
+  dividends, making returns across time more comparable.
+- `dividend_cash` and `split_factor`: the provider's corporate-action values.
+- `fetched_at`: when Chiron obtained this version from the provider.
+- `observation_sha256`: a fingerprint of the symbol, date, and complete set of values.
+
+Rows cannot be updated or deleted. If Tiingo later corrects a historical value, Chiron stores a
+second observation for that trading date. Repeating a download with identical values does not add
+a duplicate because the fingerprint is the same.
 
 ### `sec_filings`
 

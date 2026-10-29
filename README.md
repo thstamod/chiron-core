@@ -24,7 +24,8 @@ year-over-year revenue growth, net margin, and year-over-year margin change when
 available. A public qualitative-output schema, baseline prompt, replaceable provider interface,
 OpenAI adapter, and exact source-evidence validator now define the qualitative-extraction
 foundation. A manual single-event command can invoke the LLM only with an explicit paid-request
-flag; it is never scheduled automatically. Stock prices and predictions are not active yet.
+flag; it is never scheduled automatically. The database foundation for versioned daily prices and
+benchmark mappings exists, but price collection and predictions are not active yet.
 
 ## Requirements
 
