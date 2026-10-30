@@ -99,6 +99,31 @@ all three state transitions can be preserved in time order. The recurring sync r
 calendar days so adjusted prices remain consistent across the planned 20-trading-day evaluation
 window; older history is not re-requested on every run.
 
+### `market_sessions`
+
+An append-only, versioned calendar of scheduled US equity trading sessions. It allows Chiron to
+count trading days and select a realistic opening price without treating weekends or exchange
+holidays as market days.
+
+Important fields:
+
+- `calendar_code`: the application calendar, initially `us_equities`.
+- `session_date`: the New York calendar date on which the market is scheduled to trade.
+- `opens_at` and `closes_at`: absolute timestamps for the scheduled core session.
+- `session_type`: `regular` or `early_close`.
+- `calendar_version`: the exact published schedule used by a rule or prediction.
+- `source_url` and `source_checked_at`: where and when the official schedule was checked.
+
+The first version contains 2026–2028 sessions based on the
+[official NYSE holiday and trading-hours calendar](https://www.nyse.com/trade/hours-calendars).
+NYSE's normal core session is 09:30–16:00 Eastern Time; the migration also records its published
+13:00 early closes. PostgreSQL converts those New York times to absolute timestamps, accounting for
+daylight-saving changes.
+
+This is a scheduled-calendar proxy for the initial US-company watchlist, not proof that every
+security traded continuously for the complete session. Unexpected closures or a later official
+calendar revision require a new calendar version rather than changes to existing rows.
+
 ### `sec_filings`
 
 One row for every SEC filing discovered by the ingestion worker. This table stores filing

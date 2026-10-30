@@ -81,6 +81,10 @@ from Tuesday through Saturday, after each normal Monday-through-Friday US tradin
 may delay or occasionally skip a scheduled run; the date range begins before the latest stored
 session, so a later run recovers missing trading days.
 
+The versioned `market_sessions` calendar initially records official scheduled US equity sessions
+for 2026–2028, including exchange holidays, daylight-saving time, and published early closes. It is
+the foundation for choosing realistic reference prices and counting 1, 5, and 20 trading days.
+
 After applying the Supabase migrations, verify the connection and run the filing sync:
 
 ```bash

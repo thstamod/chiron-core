@@ -649,6 +649,42 @@ snapshot.
 
 ## Nice to have
 
+### Verify the official market calendar automatically
+
+**Status:** Planned
+
+**Priority:** Before the stored calendar coverage expires or commercial use
+
+#### Current behavior
+
+The versioned `market_sessions` rows are generated from holiday and early-close dates that were
+manually checked against the official NYSE trading-hours calendar. The worker does not periodically
+download or compare that page. Extending the calendar or handling a published revision therefore
+requires a person to review the official source and add a new migration and calendar version.
+
+#### Proposed behavior
+
+1. Periodically retrieve an official exchange calendar source.
+2. Compare its holidays, regular hours, and early closes with the active stored calendar version.
+3. Report missing future coverage or differences without changing historical rows automatically.
+4. Require a reviewed migration to create a new calendar version when a real difference is found.
+5. Record when the source was checked and which published schedule was compared.
+
+#### What this improves
+
+- Warns us before the stored calendar runs out.
+- Detects official schedule revisions and unusual announced closures.
+- Reduces the chance that a reference price or evaluation horizon uses an incorrect trading day.
+- Preserves reproducibility because detection does not silently rewrite an existing version.
+
+#### Acceptance checks
+
+- An unchanged official schedule produces no alert and no database writes.
+- A new holiday, early close, or uncovered year produces a clear review item.
+- Existing calendar-version rows remain unchanged.
+- A reviewed difference is added under a new version and can be selected by future rules.
+- Temporary source failures do not create or modify calendar data.
+
 ### Strengthen document synchronization and extraction reuse
 
 **Status:** Partial — recoverable Storage/database persistence implemented on 2026-10-14
