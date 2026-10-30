@@ -23,6 +23,10 @@ export interface OpenAILanguageModelConfig {
   model: string
 }
 
+export interface TiingoPriceConfig {
+  apiToken: string
+}
+
 export function loadDatabaseConfig(): DatabaseConfig {
   const missing = requiredDatabaseKeys.filter((key) => !process.env[key]?.trim())
 
@@ -75,4 +79,15 @@ export function loadOpenAILanguageModelConfig(): OpenAILanguageModelConfig {
   }
 
   return { apiKey, model }
+}
+
+export function loadTiingoPriceConfig(): TiingoPriceConfig {
+  const apiToken = process.env[EnvironmentVariable.tiingoApiToken]?.trim()
+  if (!apiToken) {
+    throw new Error(
+      `Missing required environment variable: ${EnvironmentVariable.tiingoApiToken}`,
+    )
+  }
+
+  return { apiToken }
 }

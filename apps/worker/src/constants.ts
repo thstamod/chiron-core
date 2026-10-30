@@ -37,6 +37,30 @@ export const SecRequestPolicy = {
   retryableStatuses: new Set([408, 429, 500, 502, 503, 504]),
 } as const
 
+export const TiingoUrl = {
+  dailyPricesBase: 'https://api.tiingo.com/tiingo/daily',
+} as const
+
+export const TiingoRequest = {
+  authorizationScheme: 'Token',
+  authorizationHeader: 'Authorization',
+  acceptHeader: 'Accept',
+  accept: 'application/json',
+  pricesPath: 'prices',
+  startDateParameter: 'startDate',
+  endDateParameter: 'endDate',
+  responseFormatParameter: 'format',
+  jsonResponseFormat: 'json',
+} as const
+
+export const TiingoRequestPolicy = {
+  requestTimeoutMilliseconds: 30_000,
+} as const
+
+export const PriceDataProvider = {
+  tiingo: 'tiingo',
+} as const
+
 export const EarningsCategory = {
   release: 'earnings_release',
   periodicReport: 'periodic_report',
@@ -346,6 +370,7 @@ export const EnvironmentVariable = {
   secLookbackDays: 'SEC_LOOKBACK_DAYS',
   openAiApiKey: 'OPENAI_API_KEY',
   openAiModel: 'OPENAI_MODEL',
+  tiingoApiToken: 'TIINGO_API_TOKEN',
 } as const
 
 export const defaultSecLookbackDays = 730

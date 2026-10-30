@@ -50,6 +50,9 @@ importers:
       openai:
         specifier: ^7.43.0
         version: 7.43.0(undici@7.30.0)(zod@4.6.7)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^24.7.2

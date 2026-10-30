@@ -78,6 +78,7 @@ flowchart TD
 | `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v6` prompt from reproducible current and previous documents. |
 | `apps/worker/src/qualitative-evidence-passages.ts` | Splits source documents into stable evidence passages so the LLM selects evidence instead of copying quotes. |
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
+| `apps/worker/src/tiingo-price-client.ts` | Builds authenticated Tiingo end-of-day price requests and validates every returned value. No worker command invokes it yet. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
 | `apps/worker/src/qualitative-extraction-review.ts` | Verifies and appends accepted, corrected, or rejected human review decisions without changing extraction history. |
 | `apps/worker/src/effective-qualitative-extraction.ts` | Selects the newest human-reviewed usable output, verifies its fingerprints and schema, and keeps original and corrected data available for audit. |

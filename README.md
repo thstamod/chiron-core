@@ -66,6 +66,9 @@ The OpenAI API key is also server-only. `OPENAI_API_KEY` and `OPENAI_MODEL` are 
 explicit qualitative-extraction command. The preview and scheduled ingestion commands neither load
 the key nor make paid LLM requests.
 
+The Tiingo token is server-only and is sent in an authorization header rather than placed in a URL.
+The price-client foundation validates provider responses, but no worker command invokes it yet.
+
 After applying the Supabase migrations, verify the connection and run the filing sync:
 
 ```bash

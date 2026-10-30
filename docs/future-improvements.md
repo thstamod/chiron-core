@@ -590,6 +590,63 @@ before they are required.
 - Public core endpoints can run without the private research repository.
 - Private predictions, corrections, and research results require explicitly separate access.
 
+### Add the dashboard qualitative-review and correction workflow
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required when the live dashboard begins displaying real qualitative extractions
+
+#### Current behavior
+
+A reviewer uses a command-line action to accept, correct, or reject an LLM extraction. A correction
+requires a complete validated JSON file. The original `extraction_runs` row remains immutable, the
+decision is appended to `extraction_reviews`, and the effective-output selector chooses the newest
+usable human-reviewed result. This is auditable but inconvenient for routine review.
+
+#### Proposed behavior
+
+1. Show the original LLM output beside each exact supporting passage in the event-details view.
+2. Provide explicit `Accept`, `Correct`, and `Reject` actions.
+3. When `Correct` is selected, open a structured form for guidance, margin direction, management
+   tone, positives, risks, summary, source limitations, and their evidence references.
+4. Submit the complete corrected output and the fingerprint of the original output through a
+   narrowly defined GraphQL mutation. Vue must never write directly to Supabase.
+5. Validate the allowed values, complete JSON schema, evidence passage IDs, source-document roles,
+   output fingerprints, reviewer identity, and review notes on the Node server.
+6. Append a new `extraction_reviews` row without updating either the original extraction or an
+   earlier review.
+7. Display the original result, complete review history, and currently effective result clearly.
+8. Allow a later review to correct or reject an earlier decision. The newest valid review controls
+   the effective result while every earlier decision remains visible.
+9. Make future scoring read only the effective reviewed output and refuse unreviewed, invalid, or
+   rejected output.
+
+#### What this improves
+
+- Removes the need to create correction JSON files manually.
+- Makes financial interpretation and supporting evidence reviewable in one place.
+- Reduces correction mistakes through constrained form controls and server-side validation.
+- Preserves a clear explanation of why scoring used an original or corrected value.
+
+#### What this does not improve
+
+The interface cannot determine whether a financial interpretation is correct. Human judgment is
+still required. A locally valid extraction must not be automatically accepted, and a later
+correction must never rewrite a prediction that was already frozen from an earlier effective
+snapshot.
+
+#### Acceptance checks
+
+- The browser never receives the Supabase secret key or writes directly to review tables.
+- Accepting an extraction records its exact original fingerprint.
+- Correcting one field submits and validates one complete corrected output.
+- Invalid enum values, missing evidence, mismatched fingerprints, and cross-event evidence are
+  rejected before insertion.
+- Rejecting an extraction prevents it from being selected for new scoring.
+- A second correction creates another review row and leaves the first correction unchanged.
+- The dashboard identifies the original result, every review decision, and the effective result.
+- Existing predictions continue using their frozen snapshot even if a newer correction is added.
+
 ## Nice to have
 
 ### Strengthen document synchronization and extraction reuse
@@ -827,6 +884,53 @@ does not belong in the first earnings-only score.
 - The dashboard clearly labels later news as context rather than as part of the original signal.
 - Duplicate announcements from several sources can be linked without counting them as several
   independent events.
+
+### Notify when an earnings event is ready for review
+
+**Status:** Agreed, not implemented
+
+**Priority:** Implement after the live dashboard defines and displays the `ready for review` state
+
+#### Current behavior
+
+The scheduled workflow can collect, group, and extract a new earnings event without actively
+notifying the owner. Discovering a ready event currently requires checking workflow logs or the
+database. Qualitative LLM extraction remains an explicit manual action.
+
+#### Proposed behavior
+
+1. Define one application-owned `ready for review` state after the required filings, readable text,
+   and deterministic financial extraction are complete.
+2. Display unread ready events in the dashboard.
+3. Record each notification delivery with a unique event, notification type, and channel so an
+   hourly retry cannot send the same alert repeatedly.
+4. Include only safe metadata: company, reporting period, completed stages, and whether manual LLM
+   extraction is still required.
+5. Add an optional external delivery channel, such as Telegram or Discord, only after the dashboard
+   behavior is stable.
+6. Keep webhook URLs, bot tokens, and other delivery credentials in server-side GitHub Secrets.
+7. Treat workflow failures as a separate notification type from newly ready earnings events.
+
+#### What this improves
+
+- Makes new earnings events visible without repeatedly inspecting GitHub Actions or Supabase.
+- Gives the owner a clear prompt to run the manual qualitative preview and paid extraction.
+- Reuses the same readiness meaning in the worker, API, and dashboard.
+
+#### What this does not improve
+
+A notification does not make the extraction more accurate and must not trigger a paid LLM request
+or prediction automatically. External delivery services can also have their own availability and
+usage limits.
+
+#### Acceptance checks
+
+- Reprocessing one event several times produces at most one notification per type and channel.
+- An event is not announced as ready until all required deterministic stages have completed.
+- Notification payloads contain no document text, database secrets, API tokens, or private URLs.
+- A delivery failure is recorded and can be retried without duplicating a successful delivery.
+- The dashboard and external message show the same readiness state.
+- Paid qualitative extraction remains a separate, explicit user action.
 
 ## Far future
 
