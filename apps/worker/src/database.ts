@@ -185,8 +185,9 @@ export async function getActiveCompanies(client: SupabaseClient): Promise<Tracke
   }))
 }
 
-export async function getActivePriceInstruments(
+export async function getActivePriceInstrumentsForProvider(
   client: SupabaseClient,
+  providerName: string,
 ): Promise<PriceInstrument[]> {
   const { data, error } = await client
     .from(DatabaseTable.priceInstruments)
@@ -200,6 +201,7 @@ export async function getActivePriceInstruments(
       currency
     `)
     .eq('is_active', true)
+    .eq('provider_name', providerName)
     .order('provider_name')
     .order('provider_symbol')
 
@@ -216,6 +218,25 @@ export async function getActivePriceInstruments(
     providerSymbol: instrument.provider_symbol,
     currency: instrument.currency,
   }))
+}
+
+export async function getLatestPriceTradingDate(
+  client: SupabaseClient,
+  priceInstrumentId: string,
+): Promise<string | null> {
+  const { data, error } = await client
+    .from(DatabaseTable.dailyPriceObservations)
+    .select('trading_date')
+    .eq('price_instrument_id', priceInstrumentId)
+    .order('trading_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Could not load latest price trading date: ${error.message}`)
+  }
+
+  return (data?.trading_date as string | undefined) ?? null
 }
 
 export async function saveChangedDailyPriceObservations(

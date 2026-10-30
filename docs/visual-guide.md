@@ -78,8 +78,9 @@ flowchart TD
 | `apps/worker/src/baseline-qualitative-prompt.ts` | Builds the public `baseline-v6` prompt from reproducible current and previous documents. |
 | `apps/worker/src/qualitative-evidence-passages.ts` | Splits source documents into stable evidence passages so the LLM selects evidence instead of copying quotes. |
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
-| `apps/worker/src/tiingo-price-client.ts` | Builds authenticated Tiingo end-of-day price requests and validates every returned value. No worker command invokes it yet. |
+| `apps/worker/src/tiingo-price-client.ts` | Builds authenticated Tiingo end-of-day price requests and validates every returned value for the manual price-sync command. |
 | `apps/worker/src/price-observations.ts` | Creates reproducible price fingerprints and selects only observations that changed from the latest stored provider values. |
+| `apps/worker/src/price-sync.ts` | Coordinates the 90-day initial price load and seven-day overlap for later daily Tiingo collection. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
 | `apps/worker/src/qualitative-extraction-review.ts` | Verifies and appends accepted, corrected, or rejected human review decisions without changing extraction history. |
 | `apps/worker/src/effective-qualitative-extraction.ts` | Selects the newest human-reviewed usable output, verifies its fingerprints and schema, and keeps original and corrected data available for audit. |
@@ -120,6 +121,7 @@ flowchart TD
     D -->|extract-document-text| T[extractDocumentText]
     D -->|extract-financial-metrics| X[extractFinancialMetrics]
     D -->|calculate-financial-derived-metrics| CALC[calculateFinancialDerivedMetrics]
+    D -->|sync-prices| PRICE[Fetch and store daily Tiingo prices]
     D -->|preview-qualitative| PREVIEW[Build safe zero-cost preview]
     D -->|extract-qualitative plus confirmation flag| QUAL[Run one provider extraction]
     F --> J[jobs.ts: runTrackedJob]
@@ -128,6 +130,7 @@ flowchart TD
     T --> J
     X --> J
     CALC --> J
+    PRICE --> J
     QUAL --> J
     J --> START[Record running in job_runs]
     START --> EXEC[Execute selected job]
@@ -456,8 +459,8 @@ be used for scoring unless a later corrected review supplies a valid effective o
 
 ## 14. The future evaluation pipeline
 
-The end-to-end jobs below are planned. The database foundation for versioned daily prices and
-benchmark mappings exists, but the Tiingo collection job does not exist yet.
+The end-to-end jobs below are planned. The database foundation, validated Tiingo client, and manual
+daily-price collection command exist, but price outcome calculations and scheduling remain planned.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
 validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost

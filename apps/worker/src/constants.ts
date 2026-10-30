@@ -70,6 +70,11 @@ export const PriceInstrumentType = {
 export type PriceInstrumentTypeValue =
   typeof PriceInstrumentType[keyof typeof PriceInstrumentType]
 
+export const PriceSyncPolicy = {
+  initialLookbackCalendarDays: 90,
+  overlapCalendarDays: 7,
+} as const
+
 export const EarningsCategory = {
   release: 'earnings_release',
   periodicReport: 'periodic_report',
@@ -282,6 +287,7 @@ export const WorkerCommand = {
   previewQualitativeExtraction: 'preview-qualitative',
   extractQualitative: 'extract-qualitative',
   reviewQualitativeExtraction: 'review-qualitative',
+  syncDailyPrices: 'sync-prices',
 } as const
 
 export const WorkerCommandFlag = {
@@ -300,6 +306,7 @@ export const JobName = {
   financialMetricExtraction: 'financial-metric-extraction',
   financialDerivedMetricCalculation: 'financial-derived-metric-calculation',
   qualitativeExtraction: 'qualitative-extraction',
+  dailyPriceSync: 'daily-price-sync',
 } as const
 
 export const JobStatus = {

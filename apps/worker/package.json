@@ -9,6 +9,7 @@
     "sync:filings": "tsx src/index.ts sync-filings",
     "sync:documents": "tsx src/index.ts sync-documents",
     "sync:events": "tsx src/index.ts sync-events",
+    "sync:prices": "tsx src/index.ts sync-prices",
     "extract:document-text": "tsx src/index.ts extract-document-text",
     "extract:financial-metrics": "tsx src/index.ts extract-financial-metrics",
     "calculate:financial-derived-metrics": "tsx src/index.ts calculate-financial-derived-metrics",

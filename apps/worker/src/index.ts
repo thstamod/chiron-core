@@ -6,6 +6,7 @@ import {
   loadDatabaseConfig,
   loadOpenAILanguageModelConfig,
   loadSecRequestConfig,
+  loadTiingoPriceConfig,
   type FilingSyncConfig,
   type SecRequestConfig,
 } from './config.js'
@@ -21,10 +22,13 @@ import {
   checkDatabase,
   createDatabaseClient,
   getActiveCompanies,
+  getActivePriceInstrumentsForProvider,
   getPendingDocumentsForTextExtraction,
   getPendingDocumentsForFinancialMetricExtraction,
   getFilingsForDocumentSync,
   getStoredDocumentSourceUrls,
+  getLatestPriceTradingDate,
+  saveChangedDailyPriceObservations,
   saveFilingCandidates,
   updateExhibitDiscovery,
   updateFilingClassification,
@@ -61,6 +65,8 @@ import {
   parseQualitativeReviewDecision,
   recordQualitativeExtractionReview,
 } from './qualitative-extraction-review.js'
+import { TiingoPriceClient } from './tiingo-price-client.js'
+import { syncTiingoDailyPrices } from './price-sync.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -374,6 +380,34 @@ async function main(): Promise<void> {
         () => calculateFinancialDerivedMetrics(client),
       )
       break
+    case WorkerCommand.syncDailyPrices: {
+      const tiingoPriceClient = new TiingoPriceClient(loadTiingoPriceConfig())
+      const summary = await runTrackedJob(
+        client,
+        JobName.dailyPriceSync,
+        () => syncTiingoDailyPrices({
+          loadActiveInstruments: (providerName) => (
+            getActivePriceInstrumentsForProvider(client, providerName)
+          ),
+          loadLatestTradingDate: (priceInstrumentId) => (
+            getLatestPriceTradingDate(client, priceInstrumentId)
+          ),
+          fetchDailyPrices: (request) => tiingoPriceClient.fetchDailyPrices(request),
+          saveChangedObservations: (observations) => (
+            saveChangedDailyPriceObservations(client, observations)
+          ),
+          onInstrumentCompleted: (result) => {
+            console.log(
+              `${result.symbol}: received ${result.pricesReceived} prices from `
+              + `${result.startDate} through ${result.endDate}; `
+              + `${result.observationsInserted} observations stored`,
+            )
+          },
+        }),
+      )
+      console.log(JSON.stringify(summary, null, 2))
+      break
+    }
     case WorkerCommand.previewQualitativeExtraction: {
       const earningsEventId = commandArguments[0]?.trim()
       if (!earningsEventId) {

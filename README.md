@@ -24,8 +24,8 @@ year-over-year revenue growth, net margin, and year-over-year margin change when
 available. A public qualitative-output schema, baseline prompt, replaceable provider interface,
 OpenAI adapter, and exact source-evidence validator now define the qualitative-extraction
 foundation. A manual single-event command can invoke the LLM only with an explicit paid-request
-flag; it is never scheduled automatically. The database foundation for versioned daily prices and
-benchmark mappings exists, but price collection and predictions are not active yet.
+flag; it is never scheduled automatically. A manual command can collect validated, versioned daily
+prices, but it is not scheduled yet and predictions are not active.
 
 ## Requirements
 
@@ -67,7 +67,16 @@ explicit qualitative-extraction command. The preview and scheduled ingestion com
 the key nor make paid LLM requests.
 
 The Tiingo token is server-only and is sent in an authorization header rather than placed in a URL.
-The price-client foundation validates provider responses, but no worker command invokes it yet.
+The price client validates provider responses. The manual price-sync command bootstraps 90 calendar
+days for a new symbol, then overlaps the latest stored trading date by seven days to recover missed
+runs and provider corrections:
+
+```bash
+pnpm worker:sync-prices
+```
+
+The command processes active Tiingo instruments sequentially, stores only new or changed values,
+and records its outcome in `job_runs`. It is not scheduled yet.
 
 After applying the Supabase migrations, verify the connection and run the filing sync:
 

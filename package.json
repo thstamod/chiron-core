@@ -12,6 +12,7 @@
     "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",
     "worker:sync-documents": "pnpm --filter @chiron/worker sync:documents",
     "worker:sync-events": "pnpm --filter @chiron/worker sync:events",
+    "worker:sync-prices": "pnpm --filter @chiron/worker sync:prices",
     "worker:extract-document-text": "pnpm --filter @chiron/worker extract:document-text",
     "worker:extract-financial-metrics": "pnpm --filter @chiron/worker extract:financial-metrics",
     "worker:calculate-financial-derived-metrics": "pnpm --filter @chiron/worker calculate:financial-derived-metrics",
