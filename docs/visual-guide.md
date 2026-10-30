@@ -63,7 +63,7 @@ flowchart TD
 | `.gitignore` | Keeps secrets, dependencies and build output out of Git. |
 | `.env.example` | Documents the environment-variable names without real credentials. |
 | `.github/workflows/sec-filings.yml` | Asks GitHub to run the collection jobs on a schedule or manually. |
-| `.github/workflows/daily-prices.yml` | Requests one daily end-of-day price collection at 02:15 UTC or runs it manually. |
+| `.github/workflows/daily-prices.yml` | Requests end-of-day price collection at 02:15 UTC Tuesday through Saturday or runs it manually. |
 | `apps/worker/src/index.ts` | Chooses and coordinates a worker command. |
 | `apps/worker/src/load-env.ts` | Loads the local `.env` file when present. |
 | `apps/worker/src/config.ts` | Loads database, SEC-request, and filing-sync configuration separately. |
@@ -81,7 +81,7 @@ flowchart TD
 | `apps/worker/src/openai-qualitative-provider.ts` | Sends one structured OpenAI Responses API request with automatic SDK retries disabled. Only the explicit paid command invokes it. |
 | `apps/worker/src/tiingo-price-client.ts` | Builds authenticated Tiingo end-of-day price requests and validates every returned value for the manual price-sync command. |
 | `apps/worker/src/price-observations.ts` | Creates reproducible price fingerprints and selects only observations that changed from the latest stored provider values. |
-| `apps/worker/src/price-sync.ts` | Coordinates the 90-day initial price load and seven-day overlap for later daily Tiingo collection. |
+| `apps/worker/src/price-sync.ts` | Coordinates the 90-day initial price load and 45-day overlap for later Tiingo collection. |
 | `apps/worker/src/qualitative-extraction-run.ts` | Validates and permanently stores one explicitly requested provider attempt without printing its source text or output. |
 | `apps/worker/src/qualitative-extraction-review.ts` | Verifies and appends accepted, corrected, or rejected human review decisions without changing extraction history. |
 | `apps/worker/src/effective-qualitative-extraction.ts` | Selects the newest human-reviewed usable output, verifies its fingerprints and schema, and keeps original and corrected data available for audit. |
@@ -147,8 +147,9 @@ extraction, then standard financial calculations. The separate daily price workf
 `runTrackedJob()`.
 
 The SEC cron line requests hourly runs on weekdays. The price cron line requests one run at 02:15
-UTC every day. Actual execution can be delayed or skipped by GitHub. These are collection schedules,
-not precise prediction clocks; overlapping price dates recover missed sessions.
+UTC Tuesday through Saturday so Friday's session is collected on Saturday without unnecessary
+Sunday or Monday runs. Actual execution can be delayed or skipped by GitHub. These are collection
+schedules, not precise prediction clocks; overlapping price dates recover missed sessions.
 
 ## 5. Job one: collect filing information
 

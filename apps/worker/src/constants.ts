@@ -72,7 +72,7 @@ export type PriceInstrumentTypeValue =
 
 export const PriceSyncPolicy = {
   initialLookbackCalendarDays: 90,
-  overlapCalendarDays: 7,
+  overlapCalendarDays: 45,
 } as const
 
 export const EarningsCategory = {

@@ -49,7 +49,7 @@ test('uses the bootstrap and overlap windows', () => {
   assert.equal(dailyPriceRequestStartDate(null, '2026-10-30'), '2026-08-01')
   assert.equal(
     dailyPriceRequestStartDate('2026-10-29', '2026-10-30'),
-    '2026-10-22',
+    '2026-09-14',
   )
 })
 
@@ -80,7 +80,7 @@ test('runs one sequential provider request and saves validated observations', as
   assert.deepEqual(requestedProviders, [PriceDataProvider.tiingo])
   assert.deepEqual(requests, [{
     providerSymbol: 'AAPL',
-    startDate: '2026-10-22',
+    startDate: '2026-09-14',
     endDate: '2026-10-30',
   }])
   assert.equal(saved[0]?.[0]?.fetchedAt, '2026-10-30T02:15:00.000Z')
@@ -93,7 +93,7 @@ test('runs one sequential provider request and saves validated observations', as
     pricesReceived: 1,
     observationsInserted: 1,
     endDate: '2026-10-30',
-    overlapCalendarDays: 7,
+    overlapCalendarDays: 45,
     initialLookbackCalendarDays: 90,
   })
 })

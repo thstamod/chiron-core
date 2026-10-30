@@ -68,17 +68,18 @@ the key nor make paid LLM requests.
 
 The Tiingo token is server-only and is sent in an authorization header rather than placed in a URL.
 The price client validates provider responses. The manual price-sync command bootstraps 90 calendar
-days for a new symbol, then overlaps the latest stored trading date by seven days to recover missed
-runs and provider corrections:
+days for a new symbol, then overlaps the latest stored trading date by 45 days to recover missed
+runs, recent provider corrections, and adjusted prices across the 20-trading-day evaluation window:
 
 ```bash
 pnpm worker:sync-prices
 ```
 
 The command processes active Tiingo instruments sequentially, stores only new or changed values,
-and records its outcome in `job_runs`. A separate GitHub workflow requests one run per day at
-02:15 UTC. GitHub may delay or occasionally skip a scheduled run; the seven-day overlap allows a
-later run to recover missing trading days.
+and records its outcome in `job_runs`. A separate GitHub workflow requests one run at 02:15 UTC
+from Tuesday through Saturday, after each normal Monday-through-Friday US trading session. GitHub
+may delay or occasionally skip a scheduled run; the date range begins before the latest stored
+session, so a later run recovers missing trading days.
 
 After applying the Supabase migrations, verify the connection and run the filing sync:
 

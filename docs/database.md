@@ -95,7 +95,9 @@ Important fields:
 Rows cannot be updated or deleted. If Tiingo later corrects a historical value, Chiron stores a
 second observation for that trading date. The worker compares new values with the latest stored
 version and skips an unchanged repeat. If a value changes from `A` to `B` and later returns to `A`,
-all three state transitions can be preserved in time order.
+all three state transitions can be preserved in time order. The recurring sync refreshes 45
+calendar days so adjusted prices remain consistent across the planned 20-trading-day evaluation
+window; older history is not re-requested on every run.
 
 ### `sec_filings`
 
