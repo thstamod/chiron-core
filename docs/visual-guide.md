@@ -377,7 +377,7 @@ Read `companies → sec_filings` as: one company can have many filings. A filing
 | `company_benchmark_assignments` | Versioned assumptions connecting each company to market and sector comparisons. |
 | `daily_price_observations` | Append-only versions of provider end-of-day price and volume values. |
 | `market_sessions` | Versioned scheduled US trading sessions, holidays, and early closes. |
-| `predictions` | Created for future research scores and snapshots. Update/delete protection is still planned. |
+| `predictions` | Created for future research scores, snapshots, and versioned planned entry sessions. Update/delete protection is still planned. |
 | `evaluations` | Created for future comparisons of stock and benchmark returns. |
 
 Database migrations are applied separately. The GitHub collection workflow does not apply SQL migrations.

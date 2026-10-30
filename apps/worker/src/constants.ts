@@ -75,6 +75,14 @@ export const PriceSyncPolicy = {
   overlapCalendarDays: 45,
 } as const
 
+export const MarketCalendar = {
+  unitedStatesEquities: 'us_equities',
+} as const
+
+export const MarketCalendarVersion = {
+  unitedStatesEquities2026Through2028: 'us-equities-nyse-2026-2028-v1',
+} as const
+
 export const EarningsCategory = {
   release: 'earnings_release',
   periodicReport: 'periodic_report',
@@ -92,6 +100,7 @@ export const RuleVersion = {
   qualitativeInputSelection: 'earnings-release-input-v1',
   qualitativeEvidencePassages: 'evidence-passages-v1',
   qualitativeSourceCoverage: 'earnings-release-source-coverage-v1',
+  referencePriceSession: 'next-available-us-equities-open-v1',
 } as const
 
 export const PromptVersion = {

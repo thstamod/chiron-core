@@ -343,6 +343,14 @@ Important fields:
 - `snapshot`: all information used to create the score.
 - `snapshot_sha256`: a fingerprint protecting reproducibility.
 - `planned_entry_session`: the trading day on which a realistic entry price will be measured.
+- `entry_calendar_code` and `entry_calendar_version`: the exact market schedule used to select that
+  session.
+- `reference_price_rule_version`: the exact rule used to choose the session.
+
+The initial reference-price rule selects the first scheduled US-equities opening strictly after the
+prediction cutoff. If processing finishes before an opening, that opening can be selected. If it
+finishes exactly at or after the opening, the rule selects the next session. Weekends and holidays
+need no separate application rule because they have no `market_sessions` row.
 
 Prediction rows must eventually be protected from updates and deletion. That protection is
 scheduled for the prediction phase, before any live predictions are created.
