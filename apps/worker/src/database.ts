@@ -11,10 +11,16 @@ import {
   type FinishedJobStatus,
   JobStatus,
   periodicSecForms,
+  type PriceInstrumentTypeValue,
   SecDocumentType,
   WorkerLimit,
 } from './constants.js'
 import { fetchAllPages } from './pagination.js'
+import type {
+  DailyPriceObservation,
+  PriceInstrument,
+} from './price-observations.js'
+import { selectChangedDailyPriceObservations } from './price-observations.js'
 
 interface CompanyRow {
   id: string
@@ -77,6 +83,23 @@ interface FinancialMetricDocumentRow {
 interface FinancialMetricExtractionRow {
   source_document_id: string
   source_content_sha256: string
+}
+
+interface PriceInstrumentRow {
+  id: string
+  company_id: string | null
+  symbol: string
+  instrument_type: PriceInstrumentTypeValue
+  provider_name: string
+  provider_symbol: string
+  currency: string
+}
+
+interface ExistingDailyPriceObservationRow {
+  id: string
+  trading_date: string
+  observation_sha256: string
+  fetched_at: string
 }
 
 export interface DocumentTextSource {
@@ -160,6 +183,127 @@ export async function getActiveCompanies(client: SupabaseClient): Promise<Tracke
     sector: company.sector,
     isActive: company.is_active,
   }))
+}
+
+export async function getActivePriceInstruments(
+  client: SupabaseClient,
+): Promise<PriceInstrument[]> {
+  const { data, error } = await client
+    .from(DatabaseTable.priceInstruments)
+    .select(`
+      id,
+      company_id,
+      symbol,
+      instrument_type,
+      provider_name,
+      provider_symbol,
+      currency
+    `)
+    .eq('is_active', true)
+    .order('provider_name')
+    .order('provider_symbol')
+
+  if (error) {
+    throw new Error(`Could not load active price instruments: ${error.message}`)
+  }
+
+  return ((data ?? []) as PriceInstrumentRow[]).map((instrument) => ({
+    id: instrument.id,
+    companyId: instrument.company_id,
+    symbol: instrument.symbol,
+    instrumentType: instrument.instrument_type,
+    providerName: instrument.provider_name,
+    providerSymbol: instrument.provider_symbol,
+    currency: instrument.currency,
+  }))
+}
+
+export async function saveChangedDailyPriceObservations(
+  client: SupabaseClient,
+  observations: DailyPriceObservation[],
+): Promise<number> {
+  if (observations.length === 0) return 0
+
+  const priceInstrumentId = observations[0]!.priceInstrumentId
+  if (observations.some((observation) => observation.priceInstrumentId !== priceInstrumentId)) {
+    throw new Error('Daily price observations must belong to one price instrument')
+  }
+
+  const tradingDates = observations.map((observation) => observation.tradingDate)
+  const firstTradingDate = tradingDates.reduce(
+    (earliest, date) => (date < earliest ? date : earliest),
+  )
+  const lastTradingDate = tradingDates.reduce(
+    (latest, date) => (date > latest ? date : latest),
+  )
+  const existingObservations = await fetchAllPages<ExistingDailyPriceObservationRow>(
+    async (from, to) => {
+      const { data, error } = await client
+        .from(DatabaseTable.dailyPriceObservations)
+        .select('id,trading_date,observation_sha256,fetched_at')
+        .eq('price_instrument_id', priceInstrumentId)
+        .gte('trading_date', firstTradingDate)
+        .lte('trading_date', lastTradingDate)
+        .order('trading_date')
+        .order('fetched_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+
+      return { data, error }
+    },
+    'Could not load existing daily price observations',
+  )
+
+  const latestFingerprintByTradingDate = new Map<string, string>()
+  for (const observation of existingObservations) {
+    if (!latestFingerprintByTradingDate.has(observation.trading_date)) {
+      latestFingerprintByTradingDate.set(
+        observation.trading_date,
+        observation.observation_sha256,
+      )
+    }
+  }
+
+  const changedObservations = selectChangedDailyPriceObservations(
+    observations,
+    latestFingerprintByTradingDate,
+  )
+  if (changedObservations.length === 0) return 0
+
+  const rows = changedObservations.map((observation) => ({
+    price_instrument_id: observation.priceInstrumentId,
+    provider_name: observation.providerName,
+    provider_symbol: observation.providerSymbol,
+    trading_date: observation.tradingDate,
+    open_price: observation.openPrice,
+    high_price: observation.highPrice,
+    low_price: observation.lowPrice,
+    close_price: observation.closePrice,
+    volume: observation.volume,
+    adjusted_open_price: observation.adjustedOpenPrice,
+    adjusted_high_price: observation.adjustedHighPrice,
+    adjusted_low_price: observation.adjustedLowPrice,
+    adjusted_close_price: observation.adjustedClosePrice,
+    adjusted_volume: observation.adjustedVolume,
+    dividend_cash: observation.dividendCash,
+    split_factor: observation.splitFactor,
+    observation_sha256: observation.observationSha256,
+    fetched_at: observation.fetchedAt,
+  }))
+
+  const { data, error } = await client
+    .from(DatabaseTable.dailyPriceObservations)
+    .upsert(rows, {
+      onConflict: 'price_instrument_id,trading_date,fetched_at',
+      ignoreDuplicates: true,
+    })
+    .select('id')
+
+  if (error) {
+    throw new Error(`Could not save daily price observations: ${error.message}`)
+  }
+
+  return data?.length ?? 0
 }
 
 export async function saveFilingCandidates(

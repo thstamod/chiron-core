@@ -61,6 +61,15 @@ export const PriceDataProvider = {
   tiingo: 'tiingo',
 } as const
 
+export const PriceInstrumentType = {
+  companyStock: 'company_stock',
+  marketBenchmark: 'market_benchmark',
+  sectorBenchmark: 'sector_benchmark',
+} as const
+
+export type PriceInstrumentTypeValue =
+  typeof PriceInstrumentType[keyof typeof PriceInstrumentType]
+
 export const EarningsCategory = {
   release: 'earnings_release',
   periodicReport: 'periodic_report',
@@ -319,6 +328,8 @@ export const DatabaseTable = {
   financialDerivedMetricCalculations: 'financial_derived_metric_calculations',
   extractionRuns: 'extraction_runs',
   extractionReviews: 'extraction_reviews',
+  priceInstruments: 'price_instruments',
+  dailyPriceObservations: 'daily_price_observations',
   jobRuns: 'job_runs',
 } as const
 

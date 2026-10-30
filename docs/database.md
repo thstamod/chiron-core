@@ -83,6 +83,8 @@ trading volume.
 Important fields:
 
 - `trading_date`: the market session described by the row.
+- `provider_name` and `provider_symbol`: a snapshot of the exact source configuration used for
+  this observation.
 - `open_price`, `high_price`, `low_price`, and `close_price`: values as reported for that day.
 - `adjusted_*`: values changed by the provider to account for events such as stock splits and cash
   dividends, making returns across time more comparable.
@@ -91,8 +93,9 @@ Important fields:
 - `observation_sha256`: a fingerprint of the symbol, date, and complete set of values.
 
 Rows cannot be updated or deleted. If Tiingo later corrects a historical value, Chiron stores a
-second observation for that trading date. Repeating a download with identical values does not add
-a duplicate because the fingerprint is the same.
+second observation for that trading date. The worker compares new values with the latest stored
+version and skips an unchanged repeat. If a value changes from `A` to `B` and later returns to `A`,
+all three state transitions can be preserved in time order.
 
 ### `sec_filings`
 

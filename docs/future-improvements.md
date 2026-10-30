@@ -973,6 +973,42 @@ than one scheduler, or moving toward commercial infrastructure.
 - A simulated concurrent update is detected and verified.
 - The current single-worker path continues to fill previously empty fiscal fields.
 
+### Make price-observation state changes atomic for concurrent workers
+
+**Status:** Agreed, not implemented
+
+**Priority:** Required only before multiple price workers can process the same instrument at once
+
+#### Current behavior
+
+The price persistence layer reads the latest fingerprint for each trading date and then inserts a
+new append-only observation only when the provider value changed. The planned GitHub workflow will
+prevent overlapping price runs, so this read-then-insert process is safe for the current PoC.
+
+#### Proposed behavior
+
+Move the latest-fingerprint comparison and conditional insert into one PostgreSQL operation. Lock
+the instrument and trading date during that operation so two workers cannot both observe the same
+old state and insert duplicate transitions.
+
+#### What this improves
+
+- Makes parallel or horizontally scaled price workers safe.
+- Preserves one ordered transition for each real provider-value change.
+- Removes dependence on one scheduler's workflow-concurrency setting.
+
+#### Implementation trigger
+
+Implement this before enabling more than one price scheduler, processing the same database from
+multiple environments, or horizontally scaling the price worker.
+
+#### Acceptance checks
+
+- Two workers receiving identical new values produce one stored state transition.
+- Two workers receiving different values cannot silently overwrite or reorder each other.
+- An unchanged provider value still creates no new observation.
+- A real `A → B → A` sequence remains preserved in chronological order.
+
 ## Adding another improvement
 
 For each future item, record:
