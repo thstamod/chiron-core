@@ -76,7 +76,9 @@ pnpm worker:sync-prices
 ```
 
 The command processes active Tiingo instruments sequentially, stores only new or changed values,
-and records its outcome in `job_runs`. It is not scheduled yet.
+and records its outcome in `job_runs`. A separate GitHub workflow requests one run per day at
+02:15 UTC. GitHub may delay or occasionally skip a scheduled run; the seven-day overlap allows a
+later run to recover missing trading days.
 
 After applying the Supabase migrations, verify the connection and run the filing sync:
 
@@ -142,8 +144,9 @@ standard calculations, not predictions or evidence that a stock will perform wel
 Every scheduled command records its start time, completion status, and result counts in
 `job_runs`, including runs that correctly find no new filings.
 
-The scheduled GitHub workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SEC_USER_AGENT` repository secrets. Enable it only after the local sync succeeds.
-It checks once per hour on weekdays to keep free-tier usage comfortably low.
+The hourly SEC workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SEC_USER_AGENT`
+repository secrets. The daily price workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and
+`TIINGO_API_TOKEN`. Enable each workflow only after its corresponding local command succeeds.
 
 ## Data sources planned
 

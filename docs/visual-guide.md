@@ -63,6 +63,7 @@ flowchart TD
 | `.gitignore` | Keeps secrets, dependencies and build output out of Git. |
 | `.env.example` | Documents the environment-variable names without real credentials. |
 | `.github/workflows/sec-filings.yml` | Asks GitHub to run the collection jobs on a schedule or manually. |
+| `.github/workflows/daily-prices.yml` | Requests one daily end-of-day price collection at 02:15 UTC or runs it manually. |
 | `apps/worker/src/index.ts` | Chooses and coordinates a worker command. |
 | `apps/worker/src/load-env.ts` | Loads the local `.env` file when present. |
 | `apps/worker/src/config.ts` | Loads database, SEC-request, and filing-sync configuration separately. |
@@ -140,11 +141,14 @@ flowchart TD
 
 For example, `pnpm worker:sync-filings` at the repository root invokes the worker's `sync:filings` script, which runs `tsx src/index.ts sync-filings`. `tsx` executes TypeScript; `main()` reads `sync-filings` from the command-line arguments.
 
-The GitHub workflow runs filings, documents, events, readable-text extraction, financial-metric
-extraction, then standard financial calculations. A failed step stops the later steps. Health checks are not recorded through
+The hourly SEC workflow runs filings, documents, events, readable-text extraction, financial-metric
+extraction, then standard financial calculations. The separate daily price workflow runs only
+`sync-prices`. A failed step stops the later steps. Health checks are not recorded through
 `runTrackedJob()`.
 
-The cron line requests hourly runs on weekdays in UTC. Actual execution can be delayed or skipped by GitHub. This is collection scheduling, not a precise prediction clock.
+The SEC cron line requests hourly runs on weekdays. The price cron line requests one run at 02:15
+UTC every day. Actual execution can be delayed or skipped by GitHub. These are collection schedules,
+not precise prediction clocks; overlapping price dates recover missed sessions.
 
 ## 5. Job one: collect filing information
 
@@ -459,8 +463,8 @@ be used for scoring unless a later corrected review supplies a valid effective o
 
 ## 14. The future evaluation pipeline
 
-The end-to-end jobs below are planned. The database foundation, validated Tiingo client, and manual
-daily-price collection command exist, but price outcome calculations and scheduling remain planned.
+The end-to-end jobs below are planned. The database foundation, validated Tiingo client, and daily
+scheduled collection exist, but price outcome calculations remain planned.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
 validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost
