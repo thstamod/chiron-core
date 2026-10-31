@@ -2,14 +2,18 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  EvaluationHorizonTradingDays,
   MarketCalendar,
   MarketCalendarVersion,
   RuleVersion,
 } from './constants.js'
-import { selectPlannedReferencePriceSession } from './reference-price-session.js'
+import {
+  selectPlannedPredictionSessions,
+  selectPlannedReferencePriceSession,
+} from './reference-price-session.js'
 
 interface QueryResult {
-  data: Record<string, string> | null
+  data: unknown
   error: unknown
 }
 
@@ -40,6 +44,12 @@ function databaseClientReturning(
     },
     async maybeSingle() {
       return result
+    },
+    then<TResult1 = QueryResult, TResult2 = never>(
+      onFulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+      onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+    ) {
+      return Promise.resolve(result).then(onFulfilled, onRejected)
     },
   }
 
@@ -114,5 +124,69 @@ test('rejects a database result that does not actually open after the cutoff', a
   await assert.rejects(
     selectPlannedReferencePriceSession(client, '2026-11-27T14:30:00.000Z'),
     /must open after the analysis cutoff/,
+  )
+})
+
+const november2026SessionDates = [
+  '2026-11-02',
+  '2026-11-03',
+  '2026-11-04',
+  '2026-11-05',
+  '2026-11-06',
+  '2026-11-09',
+  '2026-11-10',
+  '2026-11-11',
+  '2026-11-12',
+  '2026-11-13',
+  '2026-11-16',
+  '2026-11-17',
+  '2026-11-18',
+  '2026-11-19',
+  '2026-11-20',
+  '2026-11-23',
+  '2026-11-24',
+  '2026-11-25',
+  '2026-11-27',
+  '2026-11-30',
+]
+
+function storedSessions(dates: string[]) {
+  return dates.map((sessionDate) => ({
+    session_date: sessionDate,
+    opens_at: `${sessionDate}T14:30:00.000Z`,
+    calendar_code: MarketCalendar.unitedStatesEquities,
+    calendar_version: MarketCalendarVersion.unitedStatesEquities2026Through2028,
+  }))
+}
+
+test('plans entry-inclusive one, five, and twenty-session horizons', async () => {
+  const recordedCalls: string[] = []
+  const client = databaseClientReturning({
+    data: storedSessions(november2026SessionDates),
+    error: null,
+  }, recordedCalls)
+
+  const schedule = await selectPlannedPredictionSessions(
+    client,
+    '2026-10-30T18:10:00.000Z',
+  )
+
+  assert.equal(schedule.entry.sessionDate, '2026-11-02')
+  assert.equal(schedule.day1SessionDate, '2026-11-02')
+  assert.equal(schedule.day5SessionDate, '2026-11-06')
+  assert.equal(schedule.day20SessionDate, '2026-11-30')
+  assert.equal(schedule.evaluationSessionRuleVersion, RuleVersion.evaluationSessionPlan)
+  assert.ok(recordedCalls.includes(`limit:${EvaluationHorizonTradingDays.twenty}`))
+})
+
+test('refuses to plan a prediction without twenty future sessions', async () => {
+  const client = databaseClientReturning({
+    data: storedSessions(november2026SessionDates.slice(0, -1)),
+    error: null,
+  }, [])
+
+  await assert.rejects(
+    selectPlannedPredictionSessions(client, '2026-10-30T18:10:00.000Z'),
+    /does not contain 20 sessions after/,
   )
 })

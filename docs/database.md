@@ -346,14 +346,25 @@ Important fields:
 - `entry_calendar_code` and `entry_calendar_version`: the exact market schedule used to select that
   session.
 - `reference_price_rule_version`: the exact rule used to choose the session.
+- `planned_day_1_session`, `planned_day_5_session`, and `planned_day_20_session`: the exact future
+  sessions whose closing prices will be evaluated.
+- `extraction_review_id` and `financial_calculation_id`: the exact reviewed qualitative result and
+  deterministic financial calculation used by the score.
+- `snapshot_schema_version`: the structure version of the complete frozen JSON snapshot.
+- `evaluation_session_rule_version`: whether and how the entry session counts toward each horizon.
+- `recorded_at`: the database server's timestamp proving when the row was actually received.
 
 The initial reference-price rule selects the first scheduled US-equities opening strictly after the
 prediction cutoff. If processing finishes before an opening, that opening can be selected. If it
 finishes exactly at or after the opening, the rule selects the next session. Weekends and holidays
 need no separate application rule because they have no `market_sessions` row.
 
-Prediction rows must eventually be protected from updates and deletion. That protection is
-scheduled for the prediction phase, before any live predictions are created.
+Prediction rows are protected from updates and deletion before the first live prediction. The
+database also rejects a prediction if its referenced event, extraction, review, or financial
+calculation was not available by the cutoff; if the prediction reaches the database after the
+planned entry opening; or if another prediction already exists for the same event and scoring-rule
+version. The worker additionally validates every snapshotted document and financial metric before
+attempting the insert.
 
 ### `evaluations`
 

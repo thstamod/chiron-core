@@ -1014,6 +1014,51 @@ usage limits.
 
 ## Far future
 
+### Anchor critical append-only history outside the primary database
+
+**Status:** Planned only if Chiron publishes a serious forward track record
+
+**Priority:** Far future — useful before commercial claims, not required for the PoC
+
+#### Current behavior
+
+Database triggers reject ordinary updates and deletes for critical append-only records such as LLM
+extraction runs, extraction reviews, price observations, market-calendar versions, and predictions.
+This protects the history from application bugs and ordinary service-role queries. A database
+administrator could still deliberately disable those triggers and rewrite both a record and its
+stored fingerprint.
+
+#### Proposed behavior
+
+1. Build a canonical daily manifest containing the IDs and fingerprints of newly created critical
+   records.
+2. Link each manifest to the previous manifest's fingerprint so removing or reordering a published
+   record is detectable.
+3. Digitally sign the manifest with a key kept outside the database.
+4. Publish or timestamp the signed fingerprint through an independent system outside Supabase.
+5. Provide a verification command that compares the database history with the externally anchored
+   manifests.
+6. Version the manifest format and document exactly which record types it covers.
+
+#### What this improves
+
+- Makes deliberate rewriting of historical predictions or inputs externally detectable.
+- Strengthens the credibility of an unedited public forward track record.
+- Covers the complete evidence chain rather than anchoring only the final score.
+
+#### What this does not improve
+
+External anchoring does not prove that an extraction, correction, price source, or prediction was
+correct. It proves only that the published record existed in that form by a particular time and was
+not silently replaced later. Key management and the independence of the timestamping mechanism
+also require their own operational controls.
+
+#### Implementation trigger
+
+Implement this before relying on Chiron's forward history in public commercial claims. Keep the
+PoC focused on database-enforced append-only records, reproducible fingerprints, and honest
+versioning until then.
+
 ### Make fiscal-identity updates atomic for concurrent workers
 
 **Status:** Agreed, not implemented

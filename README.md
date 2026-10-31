@@ -123,6 +123,19 @@ The confirmation flag is required. This command makes exactly one provider reque
 schema and exact-evidence validation, and inserts one permanent `extraction_runs` record. It is not
 part of the scheduled workflow and has no automatic retry.
 
+After a completed extraction is accepted or corrected through the manual review command, create one
+immutable prediction for the event:
+
+```bash
+pnpm worker:preview-prediction <earnings-event-id>
+pnpm worker:create-prediction <earnings-event-id>
+```
+
+The preview prints the proposed score and schedule without writing to the database. The create
+command freezes every available source, versioned input, score component, and planned market
+session before the future entry price is known. It refuses unreviewed qualitative output, duplicate
+event/rule predictions, and incomplete market-calendar coverage. It is intentionally not scheduled.
+
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations
 and financial condition. Other `8-K` filings are retained as metadata but are not downloaded.
@@ -156,12 +169,12 @@ The hourly SEC workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `SEC
 repository secrets. The daily price workflow requires `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and
 `TIINGO_API_TOKEN`. Enable each workflow only after its corresponding local command succeeds.
 
-## Data sources planned
+## Data sources
 
 - SEC EDGAR for filings and structured financial facts.
 - Tiingo for personal end-of-day price research.
 - OpenAI Responses API for the first structured qualitative-extraction provider. The provider is
-  replaceable through a public interface, but it is not connected to a runnable worker command yet.
+  replaceable through a public interface and is called only by the explicit paid manual command.
 
 ## License
 

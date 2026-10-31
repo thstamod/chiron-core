@@ -102,6 +102,17 @@ export const RuleVersion = {
   qualitativeSourceCoverage: 'earnings-release-source-coverage-v1',
   referencePriceSession: 'next-available-us-equities-open-v1',
   transparentEarningsScore: 'transparent-earnings-score-v1',
+  evaluationSessionPlan: 'entry-inclusive-trading-horizons-v1',
+} as const
+
+export const PredictionSnapshotVersion = {
+  initial: 'prediction-snapshot-v1',
+} as const
+
+export const EvaluationHorizonTradingDays = {
+  one: 1,
+  five: 5,
+  twenty: 20,
 } as const
 
 export const ScoringComponentCategory = {
@@ -328,6 +339,8 @@ export const WorkerCommand = {
   extractQualitative: 'extract-qualitative',
   reviewQualitativeExtraction: 'review-qualitative',
   syncDailyPrices: 'sync-prices',
+  previewPrediction: 'preview-prediction',
+  createPrediction: 'create-prediction',
 } as const
 
 export const WorkerCommandFlag = {
@@ -377,6 +390,8 @@ export const DatabaseTable = {
   extractionReviews: 'extraction_reviews',
   priceInstruments: 'price_instruments',
   dailyPriceObservations: 'daily_price_observations',
+  marketSessions: 'market_sessions',
+  predictions: 'predictions',
   jobRuns: 'job_runs',
 } as const
 

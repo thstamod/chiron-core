@@ -67,6 +67,7 @@ import {
 } from './qualitative-extraction-review.js'
 import { TiingoPriceClient } from './tiingo-price-client.js'
 import { syncTiingoDailyPrices } from './price-sync.js'
+import { createAndStorePrediction, previewPrediction } from './predictions.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -484,6 +485,26 @@ async function main(): Promise<void> {
         correctedOutput,
       })
       console.log(JSON.stringify(summary, null, 2))
+      break
+    }
+    case WorkerCommand.createPrediction: {
+      rejectUnknownCommandOptions(commandArguments, [])
+      const earningsEventId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.createPrediction,
+      )
+      const summary = await createAndStorePrediction(client, earningsEventId)
+      console.log(JSON.stringify(summary, null, 2))
+      break
+    }
+    case WorkerCommand.previewPrediction: {
+      rejectUnknownCommandOptions(commandArguments, [])
+      const earningsEventId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.previewPrediction,
+      )
+      const preview = await previewPrediction(client, earningsEventId)
+      console.log(JSON.stringify(preview, null, 2))
       break
     }
     default:

@@ -19,6 +19,8 @@
     "worker:preview-qualitative": "pnpm --filter @chiron/worker preview:qualitative",
     "worker:extract-qualitative": "pnpm --filter @chiron/worker extract:qualitative",
     "worker:review-qualitative": "pnpm --filter @chiron/worker review:qualitative",
+    "worker:preview-prediction": "pnpm --filter @chiron/worker preview:prediction",
+    "worker:create-prediction": "pnpm --filter @chiron/worker create:prediction",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
