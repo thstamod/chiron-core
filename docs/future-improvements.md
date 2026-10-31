@@ -489,6 +489,50 @@ storage would be needed for that final gap and must be evaluated against privacy
 - Manual recovery requires an explicit decision and records its relationship to the earlier request.
 - Logs never contain source documents, LLM output, or API credentials.
 
+### Automate guarded qualitative LLM execution
+
+**Status:** Agreed, not implemented
+
+**Priority:** After the manual PoC demonstrates stable extraction quality and predictable cost
+
+#### Current behavior
+
+The scheduled SEC workflow prepares readable source text and deterministic financial data but stops
+before any paid LLM request. The owner explicitly previews an event, authorizes one qualitative
+extraction, and then accepts, corrects, or rejects the completed output. Local validation never
+turns an extraction into an approved result automatically.
+
+#### Proposed behavior
+
+1. Consider only complete, unambiguous earnings events with the required verified source text.
+2. Create the durable paid-request record before contacting the provider.
+3. Allow at most one provider call for each unique versioned input fingerprint.
+4. Enforce configured input-token, calls-per-run, and monthly-cost limits before making a request.
+5. Never automatically retry a failed, interrupted, refused, or incomplete paid request.
+6. Store every outcome and validation result without making it effective automatically.
+7. Continue requiring a human decision to accept, correct, or reject every completed extraction.
+
+#### What this improves
+
+- Removes the need to start each routine extraction from the terminal or dashboard.
+- Keeps duplicate workflow runs from creating duplicate paid requests.
+- Allows new events to become ready for review sooner while preserving cost controls.
+
+#### What this does not improve
+
+Automatic execution does not prove that the financial interpretation is correct. Schema and exact
+evidence validation catch technical problems, not missing context or mistaken judgment. Human
+approval therefore remains a separate mandatory step before scoring can use an extraction.
+
+#### Acceptance checks
+
+- The same input fingerprint cannot create a second automatic provider call.
+- Ambiguous or incomplete events never trigger a paid call.
+- Limit exhaustion creates a visible deferred result rather than a provider request.
+- Provider failures are stored and are not retried automatically.
+- Valid output remains unavailable to scoring until a human accepts or corrects it.
+- The scheduled workflow never receives more provider permissions than the extraction job needs.
+
 ### Revalidate historical outputs after validation-rule changes
 
 **Status:** Agreed, not implemented

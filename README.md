@@ -56,6 +56,9 @@ their relationships, and the private SEC document bucket.
 See [Visual code guide](docs/visual-guide.md) for Mermaid diagrams explaining the project,
 its files, worker functions, database relationships, and the future research pipeline.
 
+See [Transparent scoring](docs/scoring.md) for the initial `-5…+5` point rules and the assumptions
+that must be validated before drawing conclusions from their results.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` only when connecting external services. Never commit `.env`.

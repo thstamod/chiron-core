@@ -101,6 +101,37 @@ export const RuleVersion = {
   qualitativeEvidencePassages: 'evidence-passages-v1',
   qualitativeSourceCoverage: 'earnings-release-source-coverage-v1',
   referencePriceSession: 'next-available-us-equities-open-v1',
+  transparentEarningsScore: 'transparent-earnings-score-v1',
+} as const
+
+export const ScoringComponentCategory = {
+  financial: 'financial',
+  qualitative: 'qualitative',
+} as const
+
+export const ScoringComponentCode = {
+  revenueGrowth: 'revenue_growth',
+  reportedMarginChange: 'reported_margin_change',
+  guidanceChange: 'guidance_change',
+  qualitativeMarginDirection: 'qualitative_margin_direction',
+  managementToneChange: 'management_tone_change',
+  keyPositives: 'key_positives',
+  keyRisks: 'key_risks',
+} as const
+
+export const TransparentScoringPolicy = {
+  minimumScore: -5,
+  maximumScore: 5,
+  minimumGuidancePoints: -2,
+  maximumGuidancePoints: 2,
+} as const
+
+export const ScorableGuidanceMetric = {
+  revenue: 'revenue',
+  earningsPerShare: 'earnings_per_share',
+  operatingIncome: 'operating_income',
+  operatingMargin: 'operating_margin',
+  freeCashFlow: 'free_cash_flow',
 } as const
 
 export const PromptVersion = {
