@@ -70,6 +70,13 @@ export const PriceInstrumentType = {
 export type PriceInstrumentTypeValue =
   typeof PriceInstrumentType[keyof typeof PriceInstrumentType]
 
+export const BenchmarkRole = {
+  market: 'market',
+  sector: 'sector',
+} as const
+
+export type BenchmarkRoleValue = typeof BenchmarkRole[keyof typeof BenchmarkRole]
+
 export const PriceSyncPolicy = {
   initialLookbackCalendarDays: 90,
   overlapCalendarDays: 45,
@@ -103,16 +110,25 @@ export const RuleVersion = {
   referencePriceSession: 'next-available-us-equities-open-v1',
   transparentEarningsScore: 'transparent-earnings-score-v1',
   evaluationSessionPlan: 'entry-inclusive-trading-horizons-v1',
+  evaluationMethodology: 'adjusted-open-to-adjusted-close-v1',
 } as const
 
 export const PredictionSnapshotVersion = {
   initial: 'prediction-snapshot-v1',
 } as const
 
+export const EvaluationSnapshotVersion = {
+  initial: 'evaluation-snapshot-v1',
+} as const
+
 export const EvaluationHorizonTradingDays = {
   one: 1,
   five: 5,
   twenty: 20,
+} as const
+
+export const EvaluationReturnPolicy = {
+  decimalPlaces: 12,
 } as const
 
 export const ScoringComponentCategory = {
@@ -341,6 +357,7 @@ export const WorkerCommand = {
   syncDailyPrices: 'sync-prices',
   previewPrediction: 'preview-prediction',
   createPrediction: 'create-prediction',
+  previewEvaluation: 'preview-evaluation',
 } as const
 
 export const WorkerCommandFlag = {
@@ -349,6 +366,7 @@ export const WorkerCommandFlag = {
   reviewerLabel: '--reviewer-label=',
   reviewNotes: '--notes=',
   correctedOutputFile: '--corrected-output-file=',
+  evaluationHorizon: '--horizon=',
 } as const
 
 export const JobName = {
@@ -389,9 +407,11 @@ export const DatabaseTable = {
   extractionRuns: 'extraction_runs',
   extractionReviews: 'extraction_reviews',
   priceInstruments: 'price_instruments',
+  companyBenchmarkAssignments: 'company_benchmark_assignments',
   dailyPriceObservations: 'daily_price_observations',
   marketSessions: 'market_sessions',
   predictions: 'predictions',
+  evaluations: 'evaluations',
   jobRuns: 'job_runs',
 } as const
 

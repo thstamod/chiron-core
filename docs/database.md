@@ -373,15 +373,27 @@ horizons.
 
 Important fields:
 
-- `entry_price`: the realistic reference price available after the prediction.
-- `stock_return`: the company's percentage price change.
-- `market_return`: the S&P 500 percentage change over the same period.
-- `sector_return`: the relevant sector benchmark's percentage change.
+- `stock_entry_price` and `stock_exit_price`: adjusted opening and closing prices selected from
+  exact stored observations.
+- `market_entry_price`, `market_exit_price`, `sector_entry_price`, and `sector_exit_price`: the
+  equivalent benchmark prices over the same interval.
+- `*_price_observation_id`: the exact append-only provider value used for each price.
+- `market_benchmark_assignment_id` and `sector_benchmark_assignment_id`: the mappings that existed
+  by the original prediction cutoff.
+- `stock_return`, `market_return`, and `sector_return`: return fractions; `0.04` is displayed as 4%.
+- `stock_minus_market_return` and `stock_minus_sector_return`: the stock return minus the matching
+  benchmark return.
 - `methodology_version`: the exact calculation rules used.
+- `snapshot`, `snapshot_schema_version`, and `snapshot_sha256`: the complete versioned evidence and
+  result with its reproducibility fingerprint.
+- `recorded_at`: the database server time at which the immutable evaluation was received.
 
 A stock **outperforms** a benchmark when its return is higher over the same dates. For example,
 if a stock gains 4% while the S&P 500 gains 1%, its market-relative performance is +3 percentage
-points.
+points. The initial methodology uses the adjusted opening price on the planned entry session and
+the adjusted closing price on the selected horizon session. PostgreSQL independently validates the
+mapping, observation versions, session timing, prices, and calculations before accepting a row.
+Evaluation rows are append-only.
 
 ### `job_runs`
 

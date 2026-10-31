@@ -463,16 +463,18 @@ The dashboard must never overwrite the original output. A correction creates a s
 record, and the UI explains why that newer version is effective. Invalid or rejected outputs cannot
 be used for scoring unless a later corrected review supplies a valid effective output.
 
-## 14. The future evaluation pipeline
+## 14. The prediction and evaluation pipeline
 
-The end-to-end jobs below are planned. The database foundation, validated Tiingo client, and daily
-scheduled collection exist, but price outcome calculations remain planned.
+The immutable prediction, validated Tiingo client, daily scheduled price collection, versioned
+market calendar, transparent score, and read-only outcome preview are implemented. Permanent
+evaluation creation and later statistical comparison across many predictions remain planned.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
 validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost
 preview, and explicitly paid single-event command are implemented and covered by mocked tests. The
 command stores provider and evidence-validation results in `extraction_runs`; it has no automatic
-retry and is not scheduled. Scoring and evaluation jobs remain planned.
+retry and is not scheduled. Prediction creation is explicit and permanent. Evaluation preview is
+read-only and reports why a horizon is not ready instead of calculating a partial result.
 
 ```mermaid
 flowchart TD

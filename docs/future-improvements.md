@@ -574,6 +574,82 @@ validation issue affected several events.
 - A changed output cannot be labeled `revalidated`; it must use the correction workflow.
 - The command requires explicit confirmation before appending any records.
 
+### Add reviewed-example RAG for qualitative extraction
+
+**Status:** Agreed, not implemented
+
+**Priority:** Next iteration after enough reviewed corrections exist
+
+#### Current behavior
+
+The baseline qualitative extractor uses the current and previous earnings-release inputs, one
+versioned prompt, and local evidence validation. Human reviews preserve accepted, corrected, and
+rejected results, but a new extraction does not retrieve lessons from earlier reviewed examples.
+The OpenAI model does not automatically learn Chiron's corrections from earlier API calls.
+
+#### Proposed behavior
+
+1. Enable PostgreSQL's `pgvector` extension in Supabase rather than introducing a separate vector
+   database for the initial implementation.
+2. Add a versioned reviewed-example table containing compact relevant source text, the accepted or
+   corrected structured result, review metadata, an embedding, the embedding-model version, and a
+   content fingerprint.
+3. Exclude rejected, unreviewed, and technically invalid examples from retrieval.
+4. Generate an embedding for a new extraction input and retrieve a small bounded number of similar
+   examples, initially two or three.
+5. Apply explicit metadata filters where useful, such as document type, company, sector, and
+   available source coverage. Keep similarity thresholds and ranking rules versioned.
+6. Include only the compact reviewed examples needed by the prompt; never send an unbounded set of
+   complete filings to the LLM.
+7. Store the retrieved example IDs, distances, retrieval-rule version, embedding-model version, and
+   final prompt-input fingerprint with every extraction.
+8. Compare the same extraction task with and without retrieval before enabling RAG for normal use.
+
+For live extraction, only examples reviewed before the new extraction cutoff are eligible. During
+historical replay, the same rule is mandatory: an event may retrieve only examples that were
+available at that historical time. A later human correction must never leak into an earlier
+backtest.
+
+The public `chiron-core` repository should contain a complete generic RAG implementation, public
+schema, retrieval interfaces, example fixtures, and evaluation harness. Real correction data,
+detailed experiments, tuned retrieval settings, and any later proven enhancement may remain in
+`chiron-research`. Ordinary embeddings and cosine-similarity code are not treated as a commercial
+advantage by themselves.
+
+#### What this improves
+
+- Reuses corrected examples without retraining or silently modifying the language model.
+- Helps the extractor handle equivalent financial language expressed with different wording.
+- Demonstrates embeddings, vector search, metadata filtering, prompt construction, versioning, and
+  leakage-safe evaluation in the public project.
+- Creates a controlled feedback loop from human review to a candidate extraction improvement.
+
+#### What this does not improve
+
+RAG does not itself train the prediction model or prove that extracted signals predict stock
+outperformance. Similar examples can also make an extraction worse when retrieval is irrelevant or
+biased. The prompt, retrieval rules, and production version must never update themselves
+automatically from one failure.
+
+#### Implementation trigger
+
+Design the schema now, but implement retrieval after approximately 30–50 useful reviewed examples
+exist. Use the larger manual review target to judge extraction quality before claiming an
+improvement. Historical source text and corrections are already preserved, so embeddings can be
+generated later without losing information.
+
+#### Acceptance checks
+
+- Only accepted or corrected examples are eligible for retrieval.
+- Every retrieved example was reviewed before the extraction cutoff being evaluated.
+- Embeddings compared in one search come from the same versioned embedding model.
+- Retrieval is bounded and records all selected example IDs and similarity values.
+- The baseline and RAG variants are compared on untouched reviewed events.
+- Evaluation measures field accuracy, unsupported claims, evidence validity, token usage, cost, and
+  latency.
+- Enabling a new retrieval version is an explicit deployment decision; old extractions never
+  change.
+
 ### Add a server-side GraphQL API for the live dashboard
 
 **Status:** Agreed, not implemented

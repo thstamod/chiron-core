@@ -136,6 +136,17 @@ command freezes every available source, versioned input, score component, and pl
 session before the future entry price is known. It refuses unreviewed qualitative output, duplicate
 event/rule predictions, and incomplete market-calendar coverage. It is intentionally not scheduled.
 
+Preview a later outcome without writing an evaluation:
+
+```bash
+pnpm worker:preview-evaluation <prediction-id> --horizon=1
+```
+
+The horizon must be `1`, `5`, or `20`. The preview uses the dates frozen in the prediction, selects
+benchmark mappings that existed at prediction time, and uses the latest end-of-day price versions
+available at preview time. It reports `not_ready` before the required session closes or while a
+required price is missing. Evaluation creation is not connected to a runnable command yet.
+
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations
 and financial condition. Other `8-K` filings are retained as metadata but are not downloaded.
