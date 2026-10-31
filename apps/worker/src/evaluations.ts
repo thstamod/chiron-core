@@ -4,9 +4,12 @@ import {
   type BenchmarkRoleValue,
   DatabaseTable,
   EvaluationHorizonTradingDays,
+  EvaluationSnapshotVersion,
   PriceInstrumentType,
   RuleVersion,
 } from './constants.js'
+import { canonicalJson } from './canonical-json.js'
+import { calculateContentSha256 } from './content-hash.js'
 import {
   calculateEvaluationReturns,
   type EvaluationReturnResult,
@@ -98,6 +101,44 @@ export interface EvaluationPreview extends Record<string, unknown> {
   marketBenchmark?: EvaluationBenchmarkEvidence
   sectorBenchmark?: EvaluationBenchmarkEvidence
   returns?: EvaluationReturnResult
+}
+
+export interface EvaluationSnapshot {
+  schemaVersion: string
+  calculatedAt: string
+  methodologyVersion: string
+  prediction: {
+    id: string
+    snapshotFingerprint: string
+  }
+  horizonDays: EvaluationHorizonDays
+  entrySession: string
+  exitSession: string
+  stock: EvaluationInstrumentEvidence
+  marketBenchmark: EvaluationBenchmarkEvidence
+  sectorBenchmark: EvaluationBenchmarkEvidence | null
+  returns: EvaluationReturnResult
+}
+
+export interface PreparedEvaluationSnapshot {
+  snapshot: EvaluationSnapshot
+  fingerprint: string
+}
+
+export interface EvaluationCreationSummary extends Record<string, unknown> {
+  evaluationId: string
+  predictionId: string
+  ticker: string
+  horizonDays: EvaluationHorizonDays
+  methodologyVersion: string
+  calculatedAt: string
+  databaseRecordedAt: string
+  entrySession: string
+  exitSession: string
+  stockReturn: number
+  stockMinusMarketReturn: number
+  stockMinusSectorReturn: number | null
+  snapshotFingerprint: string
 }
 
 function validTimestamp(value: string, description: string): string {
@@ -401,5 +442,110 @@ export async function previewEvaluation(
     marketBenchmark,
     sectorBenchmark,
     returns,
+  }
+}
+
+export function prepareEvaluationSnapshot(
+  preview: EvaluationPreview,
+): PreparedEvaluationSnapshot {
+  if (
+    preview.status !== 'ready'
+    || !preview.stock
+    || !preview.marketBenchmark
+    || !preview.sectorBenchmark
+    || !preview.returns
+  ) {
+    throw new Error(
+      `Evaluation is not ready: ${preview.reasons.join('; ') || preview.status}`,
+    )
+  }
+  const snapshot: EvaluationSnapshot = {
+    schemaVersion: EvaluationSnapshotVersion.initial,
+    calculatedAt: preview.calculatedAt,
+    methodologyVersion: preview.methodologyVersion,
+    prediction: {
+      id: preview.predictionId,
+      snapshotFingerprint: preview.predictionSnapshotFingerprint,
+    },
+    horizonDays: preview.horizonDays,
+    entrySession: preview.entrySession,
+    exitSession: preview.exitSession,
+    stock: preview.stock,
+    marketBenchmark: preview.marketBenchmark,
+    sectorBenchmark: preview.sectorBenchmark,
+    returns: preview.returns,
+  }
+  return {
+    snapshot,
+    fingerprint: calculateContentSha256(
+      new TextEncoder().encode(canonicalJson(snapshot)),
+    ),
+  }
+}
+
+export async function createAndStoreEvaluation(
+  client: SupabaseClient,
+  predictionId: string,
+  horizonDays: EvaluationHorizonDays,
+  now: () => Date = () => new Date(),
+): Promise<EvaluationCreationSummary> {
+  const preview = await previewEvaluation(client, predictionId, horizonDays, now)
+  const { snapshot, fingerprint } = prepareEvaluationSnapshot(preview)
+  const sectorBenchmark = snapshot.sectorBenchmark
+  const sectorReturn = snapshot.returns.sectorBenchmark
+  if (!sectorBenchmark || !sectorReturn) {
+    throw new Error('Ready evaluation requires complete sector benchmark evidence')
+  }
+
+  const { data, error } = await client
+    .from(DatabaseTable.evaluations)
+    .insert({
+      prediction_id: snapshot.prediction.id,
+      horizon_days: snapshot.horizonDays,
+      stock_entry_price: snapshot.returns.stock.entryPrice,
+      stock_exit_price: snapshot.returns.stock.exitPrice,
+      market_entry_price: snapshot.returns.marketBenchmark.entryPrice,
+      market_exit_price: snapshot.returns.marketBenchmark.exitPrice,
+      sector_entry_price: sectorReturn.entryPrice,
+      sector_exit_price: sectorReturn.exitPrice,
+      stock_return: snapshot.returns.stock.returnFraction,
+      market_return: snapshot.returns.marketBenchmark.returnFraction,
+      sector_return: sectorReturn.returnFraction,
+      stock_minus_market_return: snapshot.returns.stockMinusMarketReturn,
+      stock_minus_sector_return: snapshot.returns.stockMinusSectorReturn,
+      stock_entry_price_observation_id: snapshot.stock.entryObservation.id,
+      stock_exit_price_observation_id: snapshot.stock.exitObservation.id,
+      market_entry_price_observation_id: snapshot.marketBenchmark.entryObservation.id,
+      market_exit_price_observation_id: snapshot.marketBenchmark.exitObservation.id,
+      sector_entry_price_observation_id: sectorBenchmark.entryObservation.id,
+      sector_exit_price_observation_id: sectorBenchmark.exitObservation.id,
+      market_benchmark_assignment_id: snapshot.marketBenchmark.assignment.id,
+      sector_benchmark_assignment_id: sectorBenchmark.assignment.id,
+      planned_exit_session: snapshot.exitSession,
+      calculated_at: snapshot.calculatedAt,
+      methodology_version: snapshot.methodologyVersion,
+      snapshot,
+      snapshot_schema_version: snapshot.schemaVersion,
+      snapshot_sha256: fingerprint,
+    })
+    .select('id,recorded_at')
+    .single()
+  if (error) throw new Error(`Could not save immutable evaluation: ${error.message}`)
+  const saved = data as { id: string; recorded_at: string }
+
+  return {
+    evaluationId: saved.id,
+    predictionId: snapshot.prediction.id,
+    ticker: preview.ticker,
+    horizonDays: snapshot.horizonDays,
+    methodologyVersion: snapshot.methodologyVersion,
+    calculatedAt: snapshot.calculatedAt,
+    databaseRecordedAt: saved.recorded_at,
+    entrySession: snapshot.entrySession,
+    exitSession: snapshot.exitSession,
+    stockReturn: snapshot.returns.stock.returnFraction,
+    stockMinusMarketReturn: snapshot.returns.stockMinusMarketReturn,
+    stockMinusSectorReturn: snapshot.returns.stockMinusSectorReturn,
+    snapshotFingerprint: fingerprint,
   }
 }

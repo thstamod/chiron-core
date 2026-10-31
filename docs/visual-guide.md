@@ -466,15 +466,17 @@ be used for scoring unless a later corrected review supplies a valid effective o
 ## 14. The prediction and evaluation pipeline
 
 The immutable prediction, validated Tiingo client, daily scheduled price collection, versioned
-market calendar, transparent score, and read-only outcome preview are implemented. Permanent
-evaluation creation and later statistical comparison across many predictions remain planned.
+market calendar, transparent score, read-only outcome preview, and explicit immutable evaluation
+creation are implemented. Automatic evaluation scheduling and later statistical comparison across
+many predictions remain planned.
 
 The provider-independent qualitative schema, input-manifest fingerprinting, and exact evidence
 validation are implemented foundations. A public baseline prompt, OpenAI adapter, zero-cost
 preview, and explicitly paid single-event command are implemented and covered by mocked tests. The
 command stores provider and evidence-validation results in `extraction_runs`; it has no automatic
-retry and is not scheduled. Prediction creation is explicit and permanent. Evaluation preview is
-read-only and reports why a horizon is not ready instead of calculating a partial result.
+retry and is not scheduled. Prediction and evaluation creation are explicit and permanent.
+Evaluation preview reports why a horizon is not ready instead of calculating a partial result, and
+creation reuses that same guarded preparation path.
 
 ```mermaid
 flowchart TD

@@ -19,6 +19,7 @@
     "preview:prediction": "tsx src/index.ts preview-prediction",
     "create:prediction": "tsx src/index.ts create-prediction",
     "preview:evaluation": "tsx src/index.ts preview-evaluation",
+    "create:evaluation": "tsx src/index.ts create-evaluation",
     "test": "tsx --test src/**/*.test.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -358,6 +358,7 @@ export const WorkerCommand = {
   previewPrediction: 'preview-prediction',
   createPrediction: 'create-prediction',
   previewEvaluation: 'preview-evaluation',
+  createEvaluation: 'create-evaluation',
 } as const
 
 export const WorkerCommandFlag = {

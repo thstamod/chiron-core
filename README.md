@@ -140,12 +140,15 @@ Preview a later outcome without writing an evaluation:
 
 ```bash
 pnpm worker:preview-evaluation <prediction-id> --horizon=1
+pnpm worker:create-evaluation <prediction-id> --horizon=1
 ```
 
 The horizon must be `1`, `5`, or `20`. The preview uses the dates frozen in the prediction, selects
 benchmark mappings that existed at prediction time, and uses the latest end-of-day price versions
 available at preview time. It reports `not_ready` before the required session closes or while a
-required price is missing. Evaluation creation is not connected to a runnable command yet.
+required price is missing. The create command uses the identical preparation path and inserts one
+permanent fingerprinted evaluation only when the preview is ready. It is intentionally not
+scheduled.
 
 The first document rule treats `10-Q` and `10-K` financial reports as earnings-related. It
 also includes `8-K` filings containing SEC item `2.02`, which means results of operations

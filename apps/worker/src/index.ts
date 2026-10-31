@@ -68,7 +68,11 @@ import {
 import { TiingoPriceClient } from './tiingo-price-client.js'
 import { syncTiingoDailyPrices } from './price-sync.js'
 import { createAndStorePrediction, previewPrediction } from './predictions.js'
-import { parseEvaluationHorizon, previewEvaluation } from './evaluations.js'
+import {
+  createAndStoreEvaluation,
+  parseEvaluationHorizon,
+  previewEvaluation,
+} from './evaluations.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -519,6 +523,19 @@ async function main(): Promise<void> {
       )
       const preview = await previewEvaluation(client, predictionId, horizonDays)
       console.log(JSON.stringify(preview, null, 2))
+      break
+    }
+    case WorkerCommand.createEvaluation: {
+      rejectUnknownCommandOptions(commandArguments, [WorkerCommandFlag.evaluationHorizon])
+      const predictionId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.createEvaluation,
+      )
+      const horizonDays = parseEvaluationHorizon(
+        requireCommandOption(commandArguments, WorkerCommandFlag.evaluationHorizon),
+      )
+      const summary = await createAndStoreEvaluation(client, predictionId, horizonDays)
+      console.log(JSON.stringify(summary, null, 2))
       break
     }
     default:

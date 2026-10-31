@@ -22,6 +22,7 @@
     "worker:preview-prediction": "pnpm --filter @chiron/worker preview:prediction",
     "worker:create-prediction": "pnpm --filter @chiron/worker create:prediction",
     "worker:preview-evaluation": "pnpm --filter @chiron/worker preview:evaluation",
+    "worker:create-evaluation": "pnpm --filter @chiron/worker create:evaluation",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
