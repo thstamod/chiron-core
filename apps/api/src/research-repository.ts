@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiDatabaseTable } from './constants.js'
 import { presentQualitativePrediction } from './prediction-presentation.js'
+import { presentScoreBreakdown } from './score-presentation.js'
 import type {
   ResearchEarningsEvent,
   ResearchEvaluation,
@@ -28,7 +29,10 @@ interface EvaluationRow {
 interface PredictionRow {
   id: string
   score: number
+  score_components: unknown
+  rule_version: string
   cutoff_at: string
+  recorded_at: string
   planned_entry_session: string
   planned_day_1_session: string
   planned_day_5_session: string
@@ -78,7 +82,10 @@ function presentPrediction(row: PredictionRow): ResearchPrediction {
   return {
     id: row.id,
     score: row.score,
+    ...presentScoreBreakdown(row.score_components),
+    ruleVersion: row.rule_version,
     cutoffAt: row.cutoff_at,
+    recordedAt: row.recorded_at,
     plannedEntrySession: row.planned_entry_session,
     plannedDay1Session: row.planned_day_1_session,
     plannedDay5Session: row.planned_day_5_session,
@@ -124,7 +131,10 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
           predictions!inner(
             id,
             score,
+            score_components,
+            rule_version,
             cutoff_at,
+            recorded_at,
             planned_entry_session,
             planned_day_1_session,
             planned_day_5_session,

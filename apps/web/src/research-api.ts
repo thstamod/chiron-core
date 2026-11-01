@@ -3,10 +3,23 @@ export interface ResearchEvaluation {
   stockMinusMarketReturn: number
 }
 
+export interface ResearchScoreComponent {
+  code: string
+  category: 'financial' | 'qualitative'
+  points: number
+  explanation: string
+}
+
 export interface ResearchPrediction {
   id: string
   score: number
+  financialScore: number
+  qualitativeScore: number
+  uncappedCombinedScore: number
+  scoreComponents: ResearchScoreComponent[]
+  ruleVersion: string
   cutoffAt: string
+  recordedAt: string
   plannedEntrySession: string
   plannedDay1Session: string
   plannedDay5Session: string
@@ -60,7 +73,18 @@ const RecentPredictionEventsQuery = /* GraphQL */ `
       latestPrediction {
         id
         score
+        financialScore
+        qualitativeScore
+        uncappedCombinedScore
+        scoreComponents {
+          code
+          category
+          points
+          explanation
+        }
+        ruleVersion
         cutoffAt
+        recordedAt
         plannedEntrySession
         plannedDay1Session
         plannedDay5Session

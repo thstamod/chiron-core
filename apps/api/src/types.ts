@@ -8,10 +8,25 @@ export interface ResearchEvaluation {
   calculatedAt: string
 }
 
+export type ResearchScoreComponentCategory = 'financial' | 'qualitative'
+
+export interface ResearchScoreComponent {
+  code: string
+  category: ResearchScoreComponentCategory
+  points: number
+  explanation: string
+}
+
 export interface ResearchPrediction {
   id: string
   score: number
+  financialScore: number
+  qualitativeScore: number
+  uncappedCombinedScore: number
+  scoreComponents: ResearchScoreComponent[]
+  ruleVersion: string
   cutoffAt: string
+  recordedAt: string
   plannedEntrySession: string
   plannedDay1Session: string
   plannedDay5Session: string

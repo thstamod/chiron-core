@@ -64,6 +64,33 @@ h3 { margin-bottom: 5px; font-size: 13px; }
 .process-list strong { color: #18212a; font-size: 13px; }
 .process-list span { margin-top: 3px; font-size: 11px; }
 
+.prediction-details-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .75fr); gap: 18px; margin-top: 18px; }
+.score-breakdown-panel, .prediction-timeline-panel { padding-bottom: 20px; }
+.detail-score { color: #3156a3; font-size: 25px; }
+.score-totals { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 15px; }
+.score-totals span { padding: 6px 9px; border-radius: 999px; color: #68737d; background: #f3f5f7; font-size: 11px; }
+.score-component-list { display: grid; gap: 10px; margin: 0; padding: 0 20px; list-style: none; }
+.score-component-list li { padding: 12px; border: 1px solid #e5e9ec; border-radius: 10px; }
+.component-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.component-heading strong, .component-heading span { display: block; }
+.component-heading strong { font-size: 13px; }
+.component-heading div > span { margin-top: 2px; color: #76818b; font-size: 10px; }
+.component-points { min-width: 30px; padding: 4px 7px; border-radius: 7px; text-align: center; font-size: 12px; font-weight: 700; }
+.component-points.positive { color: #18794e; background: #e7f6ee; }
+.component-points.negative { color: #b42318; background: #fff0ef; }
+.component-points.neutral { color: #68737d; background: #edf0f2; }
+.score-component-list p { margin: 8px 0 0; color: #68737d; font-size: 12px; line-height: 1.5; }
+.prediction-timeline-panel { padding: 20px; }
+.prediction-timeline-panel h2 { margin-bottom: 18px; }
+.prediction-timeline { display: grid; gap: 0; margin: 0; }
+.prediction-timeline div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid #e5e9ec; }
+.prediction-timeline dt { color: #76818b; font-size: 11px; }
+.prediction-timeline dd { margin: 0; font-size: 12px; font-weight: 600; text-align: right; }
+.rule-version { display: grid; gap: 3px; margin: 16px 0 0; }
+.rule-version strong { font-size: 11px; }
+.rule-version span { color: #68737d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; overflow-wrap: anywhere; }
+.immutable-note { margin: 15px 0 0; padding: 11px; border-radius: 9px; color: #3156a3; background: #edf2ff; font-size: 11px; line-height: 1.5; }
+
 .events-panel { margin-top: 18px; overflow: hidden; }
 .section-heading { padding: 18px 20px 14px; }
 .section-heading h2 { margin: 0; }
@@ -89,6 +116,7 @@ tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
   .sidebar nav a:nth-child(n + 4), .nav-heading, .research-note { display: none; }
   .content { padding: 22px 16px; }
   .overview-grid { grid-template-columns: 1fr; }
+  .prediction-details-grid { grid-template-columns: 1fr; }
   .signal-grid { grid-template-columns: 1fr; }
   .page-heading { align-items: flex-start; }
   .page-heading > button { display: none; }
@@ -98,13 +126,18 @@ tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
   :root { color: #edf2f5; background: #0d1116; }
   .topbar, .sidebar, .panel { background: #151b22; border-color: #2b3540; }
   .sidebar { border-bottom-color: #2b3540; }
-  .sidebar a:hover, .sidebar a.active, .signal-grid article, tbody tr:hover, tbody tr.selected { color: #edf2f5; background: #1c242d; }
+  .sidebar a:hover, .sidebar a.active, .signal-grid article, .score-totals span, tbody tr:hover, tbody tr.selected { color: #edf2f5; background: #1c242d; }
   .content, .app-shell { background: #0d1116; }
   h1, h2, h3, .brand, .process-list strong { color: #edf2f5; }
   .page-heading > button { color: #edf2f5; border-color: #36414c; background: #151b22; }
   .message-panel button { color: #edf2f5; border-color: #36414c; background: #151b22; }
   .company-mark { color: #9fb9ff; background: #202c49; }
   .risk { color: #efc35d; background: #392f17; }
+  .score-component-list li, .prediction-timeline div { border-color: #2b3540; }
+  .component-points.positive { color: #70d6a3; background: #17362a; }
+  .component-points.negative { color: #ff928a; background: #3d2222; }
+  .component-points.neutral { color: #a7b1ba; background: #252d35; }
+  .immutable-note { color: #9fb9ff; background: #202c49; }
   th { background: #1b232c; }
   th, td, .research-note { border-color: #2b3540; }
   .status-pill { color: #70d6a3; background: #17362a; }

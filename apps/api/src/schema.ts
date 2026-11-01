@@ -43,7 +43,13 @@ export const apiSchema = createSchema<ApiContext>({
     type Prediction {
       id: ID!
       score: Int!
+      financialScore: Int!
+      qualitativeScore: Int!
+      uncappedCombinedScore: Int!
+      scoreComponents: [ScoreComponent!]!
+      ruleVersion: String!
       cutoffAt: String!
+      recordedAt: String!
       plannedEntrySession: String!
       plannedDay1Session: String!
       plannedDay5Session: String!
@@ -55,6 +61,13 @@ export const apiSchema = createSchema<ApiContext>({
       managementTone: String!
       mainRisk: String
       evaluations: [Evaluation!]!
+    }
+
+    type ScoreComponent {
+      code: String!
+      category: String!
+      points: Int!
+      explanation: String!
     }
 
     type Evaluation {

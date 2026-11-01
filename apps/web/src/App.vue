@@ -44,6 +44,21 @@ function displayDate(value: string | null): string {
   }).format(new Date(`${value}T00:00:00Z`))
 }
 
+function displayTimestamp(value: string): string {
+  const formattedTimestamp = new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(new Date(value))
+  return `${formattedTimestamp} UTC`
+}
+
+function scoreComponentClass(points: number): string {
+  if (points > 0) return 'positive'
+  if (points < 0) return 'negative'
+  return 'neutral'
+}
+
 function marketComparison(prediction: ResearchPrediction | null): string {
   const day20Evaluation = prediction?.evaluations.find((evaluation) => evaluation.horizonDays === 20)
   if (!day20Evaluation) return UiText.waitingForResult
@@ -155,6 +170,44 @@ onMounted(refreshEvents)
               <li :class="{ complete: selectedEvent.latestPrediction }"><strong>Prediction frozen</strong><span>Cannot be edited afterward</span></li>
               <li :class="{ complete: hasEveryEvaluationHorizon(selectedEvent.latestPrediction) }"><strong>Measure results</strong><span>After 1, 5 and 20 market days</span></li>
             </ol>
+          </section>
+        </div>
+
+        <div v-if="selectedEvent.latestPrediction" class="prediction-details-grid">
+          <section class="panel score-breakdown-panel">
+            <div class="section-heading">
+              <div><p class="eyebrow">Transparent scoring rule</p><h2>Why this score?</h2></div>
+              <strong class="detail-score">{{ scoreLabel(selectedEvent.latestPrediction.score) }}</strong>
+            </div>
+            <div class="score-totals">
+              <span>Financial {{ scoreLabel(selectedEvent.latestPrediction.financialScore) }}</span>
+              <span>Qualitative {{ scoreLabel(selectedEvent.latestPrediction.qualitativeScore) }}</span>
+              <span>Before limit {{ scoreLabel(selectedEvent.latestPrediction.uncappedCombinedScore) }}</span>
+            </div>
+            <ol class="score-component-list">
+              <li v-for="component in selectedEvent.latestPrediction.scoreComponents" :key="component.code">
+                <div class="component-heading">
+                  <div><strong class="capitalize">{{ displayValue(component.code) }}</strong><span class="capitalize">{{ component.category }}</span></div>
+                  <span class="component-points" :class="scoreComponentClass(component.points)">{{ scoreLabel(component.points) }}</span>
+                </div>
+                <p>{{ component.explanation }}</p>
+              </li>
+            </ol>
+          </section>
+
+          <section class="panel prediction-timeline-panel">
+            <p class="eyebrow">Immutable forward record</p>
+            <h2>Frozen timeline</h2>
+            <dl class="prediction-timeline">
+              <div><dt>Prediction cutoff</dt><dd>{{ displayTimestamp(selectedEvent.latestPrediction.cutoffAt) }}</dd></div>
+              <div><dt>Recorded by database</dt><dd>{{ displayTimestamp(selectedEvent.latestPrediction.recordedAt) }}</dd></div>
+              <div><dt>Reference entry · session open</dt><dd>{{ displayDate(selectedEvent.latestPrediction.plannedEntrySession) }}</dd></div>
+              <div><dt>Day 1 outcome · session close</dt><dd>{{ displayDate(selectedEvent.latestPrediction.plannedDay1Session) }}</dd></div>
+              <div><dt>Day 5 outcome</dt><dd>{{ displayDate(selectedEvent.latestPrediction.plannedDay5Session) }}</dd></div>
+              <div><dt>Day 20 outcome</dt><dd>{{ displayDate(selectedEvent.latestPrediction.plannedDay20Session) }}</dd></div>
+            </dl>
+            <p class="rule-version"><strong>Rule version</strong><span>{{ selectedEvent.latestPrediction.ruleVersion }}</span></p>
+            <p class="immutable-note">These timestamps and planned market sessions cannot be changed after prediction creation.</p>
           </section>
         </div>
 
