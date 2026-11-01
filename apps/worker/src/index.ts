@@ -28,6 +28,7 @@ import {
   getFilingsForDocumentSync,
   getStoredDocumentSourceUrls,
   getLatestPriceTradingDate,
+  loadWatchlistValidationInput,
   saveChangedDailyPriceObservations,
   saveFilingCandidates,
   updateExhibitDiscovery,
@@ -73,6 +74,10 @@ import {
   parseEvaluationHorizon,
   previewEvaluation,
 } from './evaluations.js'
+import {
+  formatWatchlistValidationReport,
+  validateWatchlist,
+} from './watchlist-validation.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -87,6 +92,22 @@ async function runHealthCheck(): Promise<void> {
   }
 
   console.log(JSON.stringify(health, null, 2))
+}
+
+async function validateConfiguredWatchlist(client: SupabaseClient): Promise<void> {
+  const validationDate = new Date().toISOString().slice(0, 10)
+  const input = await loadWatchlistValidationInput(client)
+  const report = validateWatchlist(input, validationDate)
+  console.log(formatWatchlistValidationReport(report))
+  if (!report.passed) {
+    const companyErrorCount = report.companies.reduce(
+      (total, company) => total + company.errors.length,
+      0,
+    )
+    throw new Error(
+      `Watchlist validation found ${report.configurationErrors.length + companyErrorCount} errors`,
+    )
+  }
 }
 
 async function syncFilings(
@@ -344,6 +365,13 @@ async function main(): Promise<void> {
   const client = createDatabaseClient(databaseConfig)
 
   switch (command) {
+    case WorkerCommand.validateWatchlist:
+      rejectUnknownCommandOptions(commandArguments, [])
+      if (commandArguments.length > 0) {
+        throw new Error(`${WorkerCommand.validateWatchlist} does not accept arguments`)
+      }
+      await validateConfiguredWatchlist(client)
+      break
     case WorkerCommand.syncFilings: {
       const filingSyncConfig = loadFilingSyncConfig()
       await runTrackedJob(

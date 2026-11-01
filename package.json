@@ -11,6 +11,7 @@
     "dev:web": "pnpm --filter @chiron/web dev",
     "dev:worker": "pnpm --filter @chiron/worker dev",
     "worker:health": "pnpm --filter @chiron/worker health",
+    "worker:validate-watchlist": "pnpm --filter @chiron/worker validate:watchlist",
     "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",
     "worker:sync-documents": "pnpm --filter @chiron/worker sync:documents",
     "worker:sync-events": "pnpm --filter @chiron/worker sync:events",

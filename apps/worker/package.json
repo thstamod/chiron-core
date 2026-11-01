@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts health",
     "health": "tsx src/index.ts health",
+    "validate:watchlist": "tsx src/index.ts validate-watchlist",
     "sync:filings": "tsx src/index.ts sync-filings",
     "sync:documents": "tsx src/index.ts sync-documents",
     "sync:events": "tsx src/index.ts sync-events",

@@ -101,6 +101,7 @@ After applying the Supabase migrations, verify the connection and run the filing
 
 ```bash
 pnpm worker:health
+pnpm worker:validate-watchlist
 pnpm worker:sync-filings
 pnpm worker:sync-documents
 pnpm worker:sync-events
@@ -108,6 +109,12 @@ pnpm worker:extract-document-text
 pnpm worker:extract-financial-metrics
 pnpm worker:calculate-financial-derived-metrics
 ```
+
+The watchlist validator is read-only. It checks that every active company has complete SEC-facing
+metadata, exactly one active Tiingo stock instrument, and applicable versioned market and sector
+benchmark assignments. It reports configuration errors and exits unsuccessfully without modifying
+Supabase. It validates stored relationships; it does not make external SEC or Tiingo requests to
+prove that a provider recognizes a configured identifier.
 
 To inspect the exact qualitative input for one event without calling OpenAI, run:
 

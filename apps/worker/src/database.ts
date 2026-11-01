@@ -8,6 +8,7 @@ import type {
 import type { DatabaseConfig } from './config.js'
 import {
   DatabaseTable,
+  type BenchmarkRoleValue,
   type FinishedJobStatus,
   JobStatus,
   periodicSecForms,
@@ -21,6 +22,12 @@ import type {
   PriceInstrument,
 } from './price-observations.js'
 import { selectChangedDailyPriceObservations } from './price-observations.js'
+import type {
+  WatchlistBenchmarkAssignment,
+  WatchlistCompany,
+  WatchlistPriceInstrument,
+  WatchlistValidationInput,
+} from './watchlist-validation.js'
 
 interface CompanyRow {
   id: string
@@ -93,6 +100,21 @@ interface PriceInstrumentRow {
   provider_name: string
   provider_symbol: string
   currency: string
+}
+
+interface WatchlistPriceInstrumentRow extends PriceInstrumentRow {
+  is_active: boolean
+}
+
+interface WatchlistBenchmarkAssignmentRow {
+  id: string
+  company_id: string
+  benchmark_instrument_id: string
+  benchmark_role: BenchmarkRoleValue
+  mapping_version: string
+  applicable_from: string
+  rationale: string
+  created_at: string
 }
 
 interface ExistingDailyPriceObservationRow {
@@ -183,6 +205,89 @@ export async function getActiveCompanies(client: SupabaseClient): Promise<Tracke
     sector: company.sector,
     isActive: company.is_active,
   }))
+}
+
+export async function loadWatchlistValidationInput(
+  client: SupabaseClient,
+): Promise<WatchlistValidationInput> {
+  const [companyRows, instrumentRows, assignmentRows] = await Promise.all([
+    fetchAllPages<CompanyRow>(
+      (from, to) => client
+        .from(DatabaseTable.companies)
+        .select('id,cik,legal_name,ticker,exchange,sector,is_active')
+        .eq('is_active', true)
+        .order('ticker')
+        .range(from, to),
+      'Could not load companies for watchlist validation',
+    ),
+    fetchAllPages<WatchlistPriceInstrumentRow>(
+      (from, to) => client
+        .from(DatabaseTable.priceInstruments)
+        .select(`
+          id,
+          company_id,
+          symbol,
+          instrument_type,
+          provider_name,
+          provider_symbol,
+          currency,
+          is_active
+        `)
+        .order('symbol')
+        .range(from, to),
+      'Could not load price instruments for watchlist validation',
+    ),
+    fetchAllPages<WatchlistBenchmarkAssignmentRow>(
+      (from, to) => client
+        .from(DatabaseTable.companyBenchmarkAssignments)
+        .select(`
+          id,
+          company_id,
+          benchmark_instrument_id,
+          benchmark_role,
+          mapping_version,
+          applicable_from,
+          rationale,
+          created_at
+        `)
+        .order('company_id')
+        .order('benchmark_role')
+        .order('applicable_from')
+        .range(from, to),
+      'Could not load benchmark assignments for watchlist validation',
+    ),
+  ])
+
+  const companies: WatchlistCompany[] = companyRows.map((company) => ({
+    id: company.id,
+    cik: company.cik,
+    legalName: company.legal_name,
+    ticker: company.ticker,
+    exchange: company.exchange,
+    sector: company.sector,
+  }))
+  const priceInstruments: WatchlistPriceInstrument[] = instrumentRows.map((instrument) => ({
+    id: instrument.id,
+    companyId: instrument.company_id,
+    symbol: instrument.symbol,
+    instrumentType: instrument.instrument_type,
+    providerName: instrument.provider_name,
+    providerSymbol: instrument.provider_symbol,
+    currency: instrument.currency,
+    isActive: instrument.is_active,
+  }))
+  const benchmarkAssignments: WatchlistBenchmarkAssignment[] = assignmentRows.map((assignment) => ({
+    id: assignment.id,
+    companyId: assignment.company_id,
+    benchmarkInstrumentId: assignment.benchmark_instrument_id,
+    benchmarkRole: assignment.benchmark_role,
+    mappingVersion: assignment.mapping_version,
+    applicableFrom: assignment.applicable_from,
+    rationale: assignment.rationale,
+    createdAt: assignment.created_at,
+  }))
+
+  return { companies, priceInstruments, benchmarkAssignments }
 }
 
 export async function getActivePriceInstrumentsForProvider(

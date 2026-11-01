@@ -345,6 +345,7 @@ export type SecDocumentTypeValue = typeof SecDocumentType[keyof typeof SecDocume
 
 export const WorkerCommand = {
   health: 'health',
+  validateWatchlist: 'validate-watchlist',
   syncFilings: 'sync-filings',
   syncDocuments: 'sync-documents',
   syncEvents: 'sync-events',
