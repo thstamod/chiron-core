@@ -8,7 +8,8 @@ It is a research and learning project. It does not provide personal investment a
 
 Phase 1 provides:
 
-- A Vue 3 dashboard that runs with clearly labelled demonstration data.
+- A Vue 3 dashboard that reads stored research through a local GraphQL API.
+- A small read-only Node.js API that keeps the Supabase secret out of the browser.
 - A TypeScript worker foundation.
 - Shared domain types.
 - An initial Supabase/PostgreSQL schema.
@@ -24,27 +25,35 @@ year-over-year revenue growth, net margin, and year-over-year margin change when
 available. A public qualitative-output schema, baseline prompt, replaceable provider interface,
 OpenAI adapter, and exact source-evidence validator now define the qualitative-extraction
 foundation. A manual single-event command can invoke the LLM only with an explicit paid-request
-flag; it is never scheduled automatically. A manual command can collect validated, versioned daily
-prices, but it is not scheduled yet and predictions are not active.
+flag; it is never scheduled automatically. A scheduled command collects validated, versioned daily
+prices. Human-reviewed extraction output can be used to create an immutable transparent prediction,
+and later commands can record its 1-, 5-, and 20-trading-day outcomes.
 
 ## Requirements
 
 - Node.js 22 or later
 - pnpm 11 or later
 
-## Run the demonstration
+## Run the local application
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The dashboard is available at the URL printed by Vite. Demo mode does not require Supabase or API keys.
+If `.env` does not exist, copy `.env.example` to `.env`, then add `SUPABASE_URL` and
+`SUPABASE_SECRET_KEY`. The command starts
+the Node GraphQL API on `127.0.0.1:4000` and the Vue application at the URL printed by Vite. The Vue
+development server forwards `/graphql` to Node, so the Supabase secret remains server-side.
+
+This first API is intended for local development only. Authentication and deployment-specific origin
+rules must be added before exposing it on the public internet.
 
 ## Repository layout
 
 ```text
 apps/web       Vue dashboard
+apps/api       Read-only Node GraphQL API
 apps/worker    Background-processing foundation
 packages/shared Shared TypeScript domain types
 supabase       Database migrations

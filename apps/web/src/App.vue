@@ -1,21 +1,94 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ScoreFormat, UiText } from './constants'
-import { demoEvents } from './demo-data'
+import { computed, onMounted, ref } from 'vue'
+import { RequiredEvaluationHorizons, ScoreFormat, UiText } from './constants'
+import {
+  loadRecentPredictionEvents,
+  type ResearchEarningsEvent,
+  type ResearchPrediction,
+} from './research-api'
 
-const selectedId = ref(demoEvents[0]?.id ?? '')
-const selectedEvent = computed(() => demoEvents.find((event) => event.id === selectedId.value) ?? demoEvents[0])
+const events = ref<ResearchEarningsEvent[]>([])
+const selectedId = ref('')
+const isLoading = ref(true)
+const loadError = ref<string | null>(null)
+
+const selectedEvent = computed(() => (
+  events.value.find((event) => event.id === selectedId.value) ?? events.value[0] ?? null
+))
+
+const apiStateLabel = computed(() => {
+  if (isLoading.value) return 'Loading research data'
+  if (loadError.value) return 'Research API unavailable'
+  return 'Connected to research database'
+})
 
 function scoreLabel(score: number): string {
   return score > 0 ? `${ScoreFormat.positivePrefix}${score}` : String(score)
 }
+
+function predictionScore(prediction: ResearchPrediction | null): string {
+  return prediction ? scoreLabel(prediction.score) : '—'
+}
+
+function displayValue(value: string | null | undefined): string {
+  return value?.replaceAll('_', ' ') ?? UiText.unavailable
+}
+
+function displayDate(value: string | null): string {
+  if (!value) return 'Period pending'
+  return new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${value}T00:00:00Z`))
+}
+
+function marketComparison(prediction: ResearchPrediction | null): string {
+  const day20Evaluation = prediction?.evaluations.find((evaluation) => evaluation.horizonDays === 20)
+  if (!day20Evaluation) return UiText.waitingForResult
+  const percentage = day20Evaluation.stockMinusMarketReturn * 100
+  return `${percentage > 0 ? ScoreFormat.positivePrefix : ''}${percentage.toFixed(2)}%`
+}
+
+function researchStatus(prediction: ResearchPrediction | null): string {
+  if (!prediction) return 'Awaiting prediction'
+  return prediction.evaluations.some((evaluation) => evaluation.horizonDays === 20)
+    ? 'Evaluated'
+    : 'Tracking'
+}
+
+function hasEveryEvaluationHorizon(prediction: ResearchPrediction | null): boolean {
+  if (!prediction) return false
+  const completedHorizons = new Set(
+    prediction.evaluations.map((evaluation) => evaluation.horizonDays),
+  )
+  return RequiredEvaluationHorizons.every((horizon) => completedHorizons.has(horizon))
+}
+
+async function refreshEvents(): Promise<void> {
+  isLoading.value = true
+  loadError.value = null
+  try {
+    events.value = await loadRecentPredictionEvents()
+    if (!events.value.some((event) => event.id === selectedId.value)) {
+      selectedId.value = events.value[0]?.id ?? ''
+    }
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : 'Could not load research data'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(refreshEvents)
 </script>
 
 <template>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">C</span><span>Chiron Research</span></div>
-      <div class="system-state"><span class="state-dot"></span>Demo mode</div>
+      <div class="brand"><span class="brand-mark">C</span><span>Chiron Project</span></div>
+      <div class="system-state" :class="{ error: loadError }"><span class="state-dot"></span>{{ apiStateLabel }}</div>
     </header>
 
     <aside class="sidebar">
@@ -34,60 +107,75 @@ function scoreLabel(score: number): string {
     <main id="overview" class="content">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">Public demonstration</p>
+          <p class="eyebrow">Forward research record</p>
           <h1>Earnings research, with evidence</h1>
           <p class="subtitle">Understand what changed, why it received a score, and what happened afterward.</p>
         </div>
         <button type="button">Manage watchlist</button>
       </div>
 
-      <div v-if="selectedEvent" class="overview-grid">
-        <section class="panel feature-panel">
-          <p class="eyebrow">Selected earnings event · Example data</p>
-          <div class="company-row">
-            <div class="company-identity">
-              <span class="company-mark">{{ selectedEvent.ticker.slice(0, 2) }}</span>
-              <div><h2>{{ selectedEvent.company }}</h2><p>{{ selectedEvent.ticker }} · {{ selectedEvent.period }}</p></div>
-            </div>
-            <div class="score"><strong>{{ scoreLabel(selectedEvent.score) }}</strong><span>research score</span></div>
-          </div>
-          <p class="summary">{{ selectedEvent.summary }}</p>
-          <div class="signal-grid">
-            <article><h3>Revenue</h3><p>Growth improved</p></article>
-            <article><h3>Profit margin</h3><p>Improving</p></article>
-            <article><h3>Future outlook</h3><p class="capitalize">{{ selectedEvent.guidance }}</p></article>
-          </div>
-          <p class="risk"><strong>Main risk:</strong> {{ selectedEvent.mainRisk }}</p>
-        </section>
-
-        <section class="panel process-panel">
-          <h2>What happens next?</h2>
-          <ol class="process-list">
-            <li class="complete"><strong>Report saved</strong><span>Original SEC document stored</span></li>
-            <li class="complete"><strong>Information extracted</strong><span>Numbers and management language</span></li>
-            <li class="complete"><strong>Prediction frozen</strong><span>Cannot be edited afterward</span></li>
-            <li><strong>Measure results</strong><span>After 1, 5 and 20 market days</span></li>
-          </ol>
-        </section>
-      </div>
-
-      <section id="events" class="panel events-panel">
-        <div class="section-heading"><div><p class="eyebrow">Demonstration dataset</p><h2>Recent earnings reports</h2></div><span>Choose a row to inspect it</span></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Company</th><th>Score</th><th>Future outlook</th><th>20-day result vs market</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr v-for="event in demoEvents" :key="event.id" :class="{ selected: selectedId === event.id }" @click="selectedId = event.id">
-                <td><button class="row-button" type="button" @click.stop="selectedId = event.id"><strong>{{ event.company }}</strong><span>{{ event.ticker }}</span></button></td>
-                <td>{{ scoreLabel(event.score) }}</td>
-                <td><span class="status-pill" :class="event.guidance">{{ event.guidance }}</span></td>
-                <td>{{ event.marketComparison === null ? UiText.waitingForResult : `${event.marketComparison > 0 ? ScoreFormat.positivePrefix : ''}${event.marketComparison}%` }}</td>
-                <td class="capitalize">{{ event.status }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <section v-if="loadError" class="panel message-panel error-message" role="alert">
+        <div><h2>Research data could not be loaded</h2><p>{{ loadError }}</p></div>
+        <button type="button" @click="refreshEvents">Try again</button>
       </section>
+
+      <section v-else-if="isLoading" class="panel message-panel" aria-live="polite">
+        <div><h2>Loading earnings events</h2><p>The dashboard is requesting the latest stored research from the local API.</p></div>
+      </section>
+
+      <section v-else-if="events.length === 0" class="panel message-panel">
+        <div><h2>No earnings events yet</h2><p>Run the ingestion workflow, then refresh this page.</p></div>
+      </section>
+
+      <template v-else-if="selectedEvent">
+        <div class="overview-grid">
+          <section class="panel feature-panel">
+            <p class="eyebrow">Selected earnings event · Stored research data</p>
+            <div class="company-row">
+              <div class="company-identity">
+                <span class="company-mark">{{ selectedEvent.ticker.slice(0, 2) }}</span>
+                <div><h2>{{ selectedEvent.companyName }}</h2><p>{{ selectedEvent.ticker }} · {{ displayDate(selectedEvent.periodEnd) }}</p></div>
+              </div>
+              <div class="score"><strong>{{ predictionScore(selectedEvent.latestPrediction) }}</strong><span>research score</span></div>
+            </div>
+            <p class="summary">{{ selectedEvent.latestPrediction?.summary ?? UiText.noSummary }}</p>
+            <div class="signal-grid">
+              <article><h3>Future outlook</h3><p class="capitalize">{{ displayValue(selectedEvent.latestPrediction?.guidanceDirection) }}</p></article>
+              <article><h3>Profit margin</h3><p class="capitalize">{{ displayValue(selectedEvent.latestPrediction?.marginDirection) }}</p></article>
+              <article><h3>Management tone</h3><p class="capitalize">{{ displayValue(selectedEvent.latestPrediction?.managementTone) }}</p></article>
+            </div>
+            <p class="risk"><strong>Main risk:</strong> {{ selectedEvent.latestPrediction?.mainRisk ?? UiText.noMainRisk }}</p>
+          </section>
+
+          <section class="panel process-panel">
+            <h2>Research progress</h2>
+            <ol class="process-list">
+              <li class="complete"><strong>Report saved</strong><span>Original SEC document stored</span></li>
+              <li :class="{ complete: selectedEvent.latestPrediction }"><strong>Information reviewed</strong><span>Numbers and management language</span></li>
+              <li :class="{ complete: selectedEvent.latestPrediction }"><strong>Prediction frozen</strong><span>Cannot be edited afterward</span></li>
+              <li :class="{ complete: hasEveryEvaluationHorizon(selectedEvent.latestPrediction) }"><strong>Measure results</strong><span>After 1, 5 and 20 market days</span></li>
+            </ol>
+          </section>
+        </div>
+
+        <section id="events" class="panel events-panel">
+          <div class="section-heading"><div><p class="eyebrow">Frozen forward record</p><h2>Prediction events</h2></div><span>Choose a row to inspect it</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Company</th><th>Score</th><th>Future outlook</th><th>20-day result vs market</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="event in events" :key="event.id" :class="{ selected: selectedId === event.id }" @click="selectedId = event.id">
+                  <td><button class="row-button" type="button" @click.stop="selectedId = event.id"><strong>{{ event.companyName }}</strong><span>{{ event.ticker }} · {{ displayDate(event.periodEnd) }}</span></button></td>
+                  <td>{{ predictionScore(event.latestPrediction) }}</td>
+                  <td><span class="status-pill" :class="event.latestPrediction?.guidanceDirection">{{ displayValue(event.latestPrediction?.guidanceDirection) }}</span></td>
+                  <td>{{ marketComparison(event.latestPrediction) }}</td>
+                  <td>{{ researchStatus(event.latestPrediction) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </template>
     </main>
   </div>
 </template>

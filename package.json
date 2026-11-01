@@ -6,7 +6,9 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@11.25.0",
   "scripts": {
-    "dev": "pnpm --filter @chiron/web dev",
+    "dev": "pnpm --parallel --filter @chiron/api --filter @chiron/web dev",
+    "dev:api": "pnpm --filter @chiron/api dev",
+    "dev:web": "pnpm --filter @chiron/web dev",
     "dev:worker": "pnpm --filter @chiron/worker dev",
     "worker:health": "pnpm --filter @chiron/worker health",
     "worker:sync-filings": "pnpm --filter @chiron/worker sync:filings",

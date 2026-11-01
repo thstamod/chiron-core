@@ -652,22 +652,23 @@ generated later without losing information.
 
 ### Add a server-side GraphQL API for the live dashboard
 
-**Status:** Agreed, not implemented
+**Status:** Initial local read API implemented; deployment hardening remains
 
 **Priority:** Required before the Vue dashboard reads real Supabase data
 
 #### Current behavior
 
-The Vue dashboard reads public demonstration data and has no connection to Supabase. The worker uses
-the Supabase secret key in trusted server-side environments such as GitHub Actions and a local
-terminal. That key must never be included in browser code, a Vite environment variable, or a
-generated frontend bundle.
+The Vue overview reads frozen prediction events through the application-owned Node GraphQL API in
+`apps/api`. The API uses the Supabase secret only on the server, binds to the local computer, limits
+the event list, and returns approved presentation fields. Vue never receives the Supabase secret or
+queries Supabase directly. Authentication, public deployment controls, full pagination, and the
+remaining dashboard queries are not implemented yet.
 
 #### Proposed behavior
 
-Add a small Node.js/TypeScript GraphQL server as `apps/api` in the modular monorepo, or deploy the
-same API through equivalent serverless functions. Vue sends queries to our GraphQL endpoint. Its
-resolvers perform narrowly defined Supabase queries using credentials available only on the server.
+Continue the small Node.js/TypeScript GraphQL server in `apps/api`, or deploy the same API through
+equivalent serverless functions. Vue sends queries to our GraphQL endpoint. Its resolvers perform
+narrowly defined Supabase queries using credentials available only on the server.
 
 Define an application-owned schema for companies, earnings events, source evidence, financial
 values, and calculated comparisons. The schema must not automatically expose the PostgreSQL schema.
@@ -679,6 +680,35 @@ This is different from connecting Vue directly to Supabase GraphQL. Our Node ser
 GraphQL schema, resolver logic, returned fields, and public/private boundary. The Supabase secret
 key remains on that server and is never sent to Vue. REST can still be added for simple operational
 endpoints such as health checks or webhooks when it is a better fit.
+
+#### Compact dashboard read model
+
+The first prediction-event resolver reads each complete immutable prediction snapshot because the
+summary, guidance, tone, margin direction, and main risk are stored inside it. This is appropriate
+for the small PoC and preserves one source of truth, but repeatedly transferring complete audit
+snapshots would become inefficient with thousands of predictions.
+
+After the PoC, add a compact database view, projection table, or narrowly selected API read model
+containing only approved dashboard fields. Derive it from the immutable prediction and review data;
+never replace, shorten, or mutate the original audit snapshot. Version the projection logic and
+retain the prediction ID so every displayed value can be traced back to its permanent source.
+
+#### Graceful API shutdown before production deployment
+
+The local API currently exits when its process is stopped. Before production deployment, handle
+the hosting platform's termination signals, stop accepting new HTTP requests, allow active requests
+to finish within a bounded timeout, dispose GraphQL resources, and then exit. This prevents a deploy
+or restart from abruptly interrupting an in-progress review or read request. Log shutdown start,
+completion, timeout, and failure without exposing secrets.
+
+#### Generate frontend types from the GraphQL contract
+
+The first Vue query uses manually maintained TypeScript response interfaces. Before the number of
+queries and fields grows, add GraphQL Code Generator or an equivalent build-time tool. Generate
+operation-specific frontend types from the server schema and checked query documents so a renamed,
+removed, or nullability-changed field fails during development instead of becoming a browser runtime
+error. Commit deterministic generated types if that keeps public setup simpler, and verify in CI that
+regeneration produces no unexpected diff.
 
 #### What this improves
 
@@ -706,6 +736,10 @@ before they are required.
 - GraphQL lists are paginated and resolvers expose only approved fields.
 - Query depth, complexity, page size, and execution time have explicit limits.
 - Related records are batched so one query does not create one database request per returned row.
+- Dashboard lists do not repeatedly transfer complete immutable snapshots at larger scale.
+- Every projected presentation field remains traceable to its immutable prediction snapshot.
+- Production termination signals stop the API gracefully within a bounded timeout.
+- Frontend operation types are generated from the checked GraphQL schema and query documents.
 - Database and API errors do not reveal credentials or private research data.
 - Public core endpoints can run without the private research repository.
 - Private predictions, corrections, and research results require explicitly separate access.
