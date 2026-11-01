@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RequiredEvaluationHorizons, ScoreFormat, UiText } from './constants'
 import {
   loadRecentPredictionEvents,
+  loadPredictionEvidence,
   type ResearchEarningsEvent,
   type ResearchPrediction,
+  type ResearchPredictionEvidence,
 } from './research-api'
 
 const events = ref<ResearchEarningsEvent[]>([])
 const selectedId = ref('')
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
+const predictionEvidence = ref<ResearchPredictionEvidence | null>(null)
+const isEvidenceLoading = ref(false)
+const evidenceLoadError = ref<string | null>(null)
+let evidenceRequestSequence = 0
 
 const selectedEvent = computed(() => (
   events.value.find((event) => event.id === selectedId.value) ?? events.value[0] ?? null
@@ -96,7 +102,35 @@ async function refreshEvents(): Promise<void> {
   }
 }
 
+async function refreshPredictionEvidence(predictionId: string | null): Promise<void> {
+  const requestSequence = ++evidenceRequestSequence
+  predictionEvidence.value = null
+  evidenceLoadError.value = null
+  if (!predictionId) {
+    isEvidenceLoading.value = false
+    return
+  }
+
+  isEvidenceLoading.value = true
+  try {
+    const loadedEvidence = await loadPredictionEvidence(predictionId)
+    if (requestSequence === evidenceRequestSequence) predictionEvidence.value = loadedEvidence
+  } catch (error) {
+    if (requestSequence === evidenceRequestSequence) {
+      evidenceLoadError.value = error instanceof Error
+        ? error.message
+        : 'Could not load prediction evidence'
+    }
+  } finally {
+    if (requestSequence === evidenceRequestSequence) isEvidenceLoading.value = false
+  }
+}
+
 onMounted(refreshEvents)
+watch(
+  () => selectedEvent.value?.latestPrediction?.id ?? null,
+  refreshPredictionEvidence,
+)
 </script>
 
 <template>
@@ -210,6 +244,37 @@ onMounted(refreshEvents)
             <p class="immutable-note">These timestamps and planned market sessions cannot be changed after prediction creation.</p>
           </section>
         </div>
+
+        <section v-if="selectedEvent.latestPrediction" class="panel evidence-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Validated qualitative extraction</p><h2>Supporting SEC evidence</h2></div>
+            <span v-if="predictionEvidence">{{ predictionEvidence.evidence.length }} exact references</span>
+          </div>
+
+          <div v-if="isEvidenceLoading" class="evidence-message" aria-live="polite">
+            Loading frozen evidence…
+          </div>
+          <div v-else-if="evidenceLoadError" class="evidence-message evidence-error" role="alert">
+            <span>{{ evidenceLoadError }}</span>
+            <button type="button" @click="refreshPredictionEvidence(selectedEvent.latestPrediction.id)">Try again</button>
+          </div>
+          <div v-else-if="predictionEvidence" class="evidence-list">
+            <article v-for="item in predictionEvidence.evidence" :key="item.fieldPath" class="evidence-item">
+              <div class="evidence-labels">
+                <span class="status-pill capitalize">{{ displayValue(item.category) }}</span>
+                <span class="source-role capitalize">{{ item.source.role }} release</span>
+              </div>
+              <h3>{{ item.claim }}</h3>
+              <blockquote>{{ item.quote }}</blockquote>
+              <footer>
+                <span>{{ item.passageId }} · {{ displayValue(item.source.documentType) }}</span>
+                <span>Published {{ displayTimestamp(item.source.publishedAt) }}</span>
+                <a :href="item.source.sourceUrl" target="_blank" rel="noopener noreferrer">Open official SEC source</a>
+              </footer>
+            </article>
+          </div>
+          <div v-else class="evidence-message">No validated qualitative evidence is available.</div>
+        </section>
 
         <section id="events" class="panel events-panel">
           <div class="section-heading"><div><p class="eyebrow">Frozen forward record</p><h2>Prediction events</h2></div><span>Choose a row to inspect it</span></div>

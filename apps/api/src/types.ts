@@ -52,6 +52,39 @@ export interface ResearchEarningsEvent {
   latestPrediction: ResearchPrediction | null
 }
 
+export type ResearchEvidenceCategory =
+  | 'guidance'
+  | 'margin_direction'
+  | 'management_tone'
+  | 'key_positive'
+  | 'key_risk'
+
+export interface ResearchEvidenceSource {
+  documentId: string
+  role: 'current' | 'previous'
+  documentType: string
+  publishedAt: string
+  sourceUrl: string
+}
+
+export interface ResearchQualitativeEvidence {
+  fieldPath: string
+  category: ResearchEvidenceCategory
+  claim: string
+  passageId: string
+  quote: string
+  startCharacter: number
+  endCharacter: number
+  source: ResearchEvidenceSource
+}
+
+export interface ResearchPredictionEvidence {
+  predictionId: string
+  extractionSchemaVersion: string
+  evidence: ResearchQualitativeEvidence[]
+}
+
 export interface ResearchRepository {
   getRecentPredictionEvents(limit: number): Promise<ResearchEarningsEvent[]>
+  getPredictionEvidence(predictionId: string): Promise<ResearchPredictionEvidence | null>
 }

@@ -17,5 +17,13 @@ export const ApiQueryLimit = {
 } as const
 
 export const ApiDatabaseTable = {
+  documents: 'documents',
   earningsEvents: 'earnings_events',
+  predictions: 'predictions',
+} as const
+
+export const TrustedSourceDocumentUrl = {
+  protocol: 'https:',
+  hostname: 'www.sec.gov',
+  archivePathPrefix: '/Archives/',
 } as const

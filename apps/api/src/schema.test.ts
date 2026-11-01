@@ -11,6 +11,9 @@ test('loads recent prediction events through the repository and caps the request
       receivedLimit = limit
       return []
     },
+    async getPredictionEvidence() {
+      return null
+    },
   }
 
   const result = await graphql({

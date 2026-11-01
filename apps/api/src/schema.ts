@@ -21,6 +21,7 @@ export const apiSchema = createSchema<ApiContext>({
     type Query {
       health: ApiHealth!
       recentPredictionEvents(limit: Int = 25): [EarningsEvent!]!
+      predictionEvidence(predictionId: ID!): PredictionEvidence
     }
 
     type ApiHealth {
@@ -79,6 +80,31 @@ export const apiSchema = createSchema<ApiContext>({
       stockMinusSectorReturn: Float
       calculatedAt: String!
     }
+
+    type PredictionEvidence {
+      predictionId: ID!
+      extractionSchemaVersion: String!
+      evidence: [QualitativeEvidence!]!
+    }
+
+    type QualitativeEvidence {
+      fieldPath: String!
+      category: String!
+      claim: String!
+      passageId: String!
+      quote: String!
+      startCharacter: Int!
+      endCharacter: Int!
+      source: EvidenceSource!
+    }
+
+    type EvidenceSource {
+      documentId: ID!
+      role: String!
+      documentType: String!
+      publishedAt: String!
+      sourceUrl: String!
+    }
   `,
   resolvers: {
     Query: {
@@ -88,6 +114,11 @@ export const apiSchema = createSchema<ApiContext>({
         argumentsValue: { limit?: number | null },
         context: ApiContext,
       ) => context.repository.getRecentPredictionEvents(normalizedEventLimit(argumentsValue.limit)),
+      predictionEvidence: (
+        _parent: unknown,
+        argumentsValue: { predictionId: string },
+        context: ApiContext,
+      ) => context.repository.getPredictionEvidence(argumentsValue.predictionId),
     },
   },
 })

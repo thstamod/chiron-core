@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiDatabaseTable } from './constants.js'
+import {
+  parseFrozenPredictionEvidence,
+  presentPredictionEvidence,
+  type EvidenceDocumentRow,
+} from './evidence-presentation.js'
 import { presentQualitativePrediction } from './prediction-presentation.js'
 import { presentScoreBreakdown } from './score-presentation.js'
 import type {
@@ -48,6 +53,19 @@ interface EarningsEventRow {
   status: string
   companies: CompanyRow | CompanyRow[]
   predictions: PredictionRow[]
+}
+
+interface PredictionEvidenceRow {
+  id: string
+  snapshot: unknown
+}
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function validateAndNormalizePredictionId(value: string): string {
+  const normalizedValue = value.trim()
+  if (!uuidPattern.test(normalizedValue)) throw new Error('Prediction ID must be a valid UUID')
+  return normalizedValue
 }
 
 function singleCompany(value: CompanyRow | CompanyRow[]): CompanyRow {
@@ -156,6 +174,36 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
 
       if (error) throw new Error(`Could not load recent prediction events: ${error.message}`)
       return (data as EarningsEventRow[]).map(presentEarningsEvent)
+    },
+
+    async getPredictionEvidence(predictionId) {
+      const normalizedId = validateAndNormalizePredictionId(predictionId)
+      const { data: predictionData, error: predictionError } = await client
+        .from(ApiDatabaseTable.predictions)
+        .select('id,snapshot')
+        .eq('id', normalizedId)
+        .maybeSingle()
+      if (predictionError) {
+        throw new Error(`Could not load prediction evidence snapshot: ${predictionError.message}`)
+      }
+      if (!predictionData) return null
+
+      const prediction = predictionData as PredictionEvidenceRow
+      const frozenEvidence = parseFrozenPredictionEvidence(prediction.snapshot)
+      const documentIds = frozenEvidence.documents.map((document) => document.documentId)
+      const { data: documentData, error: documentError } = await client
+        .from(ApiDatabaseTable.documents)
+        .select('id,document_type,source_url,published_at,first_seen_at,content_sha256')
+        .in('id', documentIds)
+      if (documentError) {
+        throw new Error(`Could not load prediction evidence documents: ${documentError.message}`)
+      }
+
+      return presentPredictionEvidence(
+        prediction.id,
+        frozenEvidence,
+        documentData as EvidenceDocumentRow[],
+      )
     },
   }
 }

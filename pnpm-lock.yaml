@@ -13,6 +13,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@chiron/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@supabase/supabase-js':
         specifier: ^2.117.2
         version: 2.117.2

@@ -11,6 +11,7 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@chiron/shared": "workspace:*",
     "@supabase/supabase-js": "^2.117.2",
     "dotenv": "^17.2.3",
     "graphql": "^16.11.0",
