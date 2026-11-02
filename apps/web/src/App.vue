@@ -2,14 +2,17 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RequiredEvaluationHorizons, ScoreFormat, UiText } from './constants'
 import {
-  loadRecentPredictionEvents,
+  loadResearchOverview,
   loadPredictionEvidence,
+  type ResearchCompany,
   type ResearchEarningsEvent,
   type ResearchPrediction,
   type ResearchPredictionEvidence,
 } from './research-api'
 
 const events = ref<ResearchEarningsEvent[]>([])
+const unpredictedEvents = ref<ResearchEarningsEvent[]>([])
+const watchlistCompanies = ref<ResearchCompany[]>([])
 const selectedId = ref('')
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
@@ -91,7 +94,10 @@ async function refreshEvents(): Promise<void> {
   isLoading.value = true
   loadError.value = null
   try {
-    events.value = await loadRecentPredictionEvents()
+    const overview = await loadResearchOverview()
+    events.value = overview.predictionEvents
+    unpredictedEvents.value = overview.unpredictedEvents
+    watchlistCompanies.value = overview.watchlistCompanies
     if (!events.value.some((event) => event.id === selectedId.value)) {
       selectedId.value = events.value[0]?.id ?? ''
     }
@@ -146,7 +152,7 @@ watch(
         <a class="active" href="#overview">Overview</a>
         <a href="#events">Earnings events</a>
         <a href="#companies">Companies</a>
-        <a href="#review">Review queue</a>
+        <a href="#unpredicted">Unpredicted events</a>
         <a href="#results">Results</a>
         <a href="#method">Method</a>
       </nav>
@@ -160,7 +166,7 @@ watch(
           <h1>Earnings research, with evidence</h1>
           <p class="subtitle">Understand what changed, why it received a score, and what happened afterward.</p>
         </div>
-        <button type="button">Manage watchlist</button>
+        <span class="watchlist-count">{{ watchlistCompanies.length }} tracked companies</span>
       </div>
 
       <section v-if="loadError" class="panel message-panel error-message" role="alert">
@@ -173,7 +179,7 @@ watch(
       </section>
 
       <section v-else-if="events.length === 0" class="panel message-panel">
-        <div><h2>No earnings events yet</h2><p>Run the ingestion workflow, then refresh this page.</p></div>
+        <div><h2>No frozen predictions yet</h2><p>The watchlist and detected events awaiting prediction remain visible below.</p></div>
       </section>
 
       <template v-else-if="selectedEvent">
@@ -288,6 +294,56 @@ watch(
                   <td><span class="status-pill" :class="event.latestPrediction?.guidanceDirection">{{ displayValue(event.latestPrediction?.guidanceDirection) }}</span></td>
                   <td>{{ marketComparison(event.latestPrediction) }}</td>
                   <td>{{ researchStatus(event.latestPrediction) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </template>
+
+      <template v-if="!isLoading && !loadError">
+        <section id="unpredicted" class="panel data-panel awaiting-events-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Stored event visibility</p><h2>Events without predictions</h2></div>
+            <span>{{ unpredictedEvents.length }} recent events</span>
+          </div>
+          <div v-if="unpredictedEvents.length === 0" class="empty-data-message">
+            No detected events are currently waiting for a prediction.
+          </div>
+          <div v-else class="table-wrap">
+            <table>
+              <thead><tr><th>Company</th><th>Period</th><th>Detected</th><th>Event status</th><th>Research state</th></tr></thead>
+              <tbody>
+                <tr v-for="event in unpredictedEvents" :key="event.id">
+                  <td><strong>{{ event.companyName }}</strong><span class="secondary-table-value">{{ event.ticker }}</span></td>
+                  <td>{{ displayDate(event.periodEnd) }}</td>
+                  <td>{{ displayTimestamp(event.detectedAt) }}</td>
+                  <td class="capitalize">{{ displayValue(event.status) }}</td>
+                  <td><span class="status-pill pending">No frozen prediction</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="companies" class="panel data-panel companies-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Configured research universe</p><h2>Company watchlist</h2></div>
+            <span>{{ watchlistCompanies.length }} companies</span>
+          </div>
+          <div v-if="watchlistCompanies.length === 0" class="empty-data-message">
+            No companies are configured in the database.
+          </div>
+          <div v-else class="table-wrap">
+            <table>
+              <thead><tr><th>Ticker</th><th>Company</th><th>Sector</th><th>Exchange</th><th>Monitoring</th></tr></thead>
+              <tbody>
+                <tr v-for="company in watchlistCompanies" :key="company.id">
+                  <td><strong>{{ company.ticker }}</strong></td>
+                  <td>{{ company.legalName }}</td>
+                  <td>{{ company.sector ?? UiText.unavailable }}</td>
+                  <td>{{ company.exchange ?? UiText.unavailable }}</td>
+                  <td><span class="status-pill" :class="{ inactive: !company.isActive }">{{ company.isActive ? 'Active' : 'Inactive' }}</span></td>
                 </tr>
               </tbody>
             </table>

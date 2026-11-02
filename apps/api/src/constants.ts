@@ -17,6 +17,7 @@ export const ApiQueryLimit = {
 } as const
 
 export const ApiDatabaseTable = {
+  companies: 'companies',
   documents: 'documents',
   earningsEvents: 'earnings_events',
   predictions: 'predictions',

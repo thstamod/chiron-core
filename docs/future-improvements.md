@@ -658,11 +658,12 @@ generated later without losing information.
 
 #### Current behavior
 
-The Vue overview reads frozen prediction events through the application-owned Node GraphQL API in
+The Vue overview reads frozen prediction events, recent events without predictions, the configured
+company watchlist, and exact frozen evidence through the application-owned Node GraphQL API in
 `apps/api`. The API uses the Supabase secret only on the server, binds to the local computer, limits
-the event list, and returns approved presentation fields. Vue never receives the Supabase secret or
-queries Supabase directly. Authentication, public deployment controls, full pagination, and the
-remaining dashboard queries are not implemented yet.
+event lists, and returns approved presentation fields. Vue never receives the Supabase secret or
+queries Supabase directly. Authentication, public deployment controls, full pagination, review
+mutations, financial-detail queries, and outcome-detail queries are not implemented yet.
 
 #### Proposed behavior
 
@@ -1123,6 +1124,56 @@ usage limits.
 - Paid qualitative extraction remains a separate, explicit user action.
 
 ## Far future
+
+### Add a point-in-time company discovery screener
+
+**Status:** Idea recorded, not designed or implemented
+
+**Priority:** Far future — only after the fixed-universe earnings research is validated
+
+#### Current behavior
+
+Chiron monitors a manually selected watchlist. It does not scan a broader US-company universe or
+propose which companies may deserve research attention. Company revenue growth is not treated as a
+promise of positive stock returns, and the current score is not a buy recommendation.
+
+#### Proposed behavior
+
+1. Define a versioned universe of sufficiently large and liquid US companies using point-in-time
+   membership data.
+2. Collect deterministic SEC/XBRL fundamentals, including revenue, margins, cash flow, and debt,
+   plus price, volume, volatility, momentum, and benchmark-relative performance.
+3. Apply explicit liquidity and data-quality filters before ranking any company.
+4. Create a transparent, versioned screening rule that proposes companies worth researching; keep
+   this separate from the earnings-event score and from trading decisions.
+5. Freeze every screening run with its timestamp, universe version, input values, rule version, and
+   selected companies before later earnings or price outcomes are known.
+6. Use inexpensive deterministic calculations across the broad universe. Run qualitative LLM
+   extraction only after a selected company has a relevant earnings event.
+7. Evaluate the screener against fixed-universe and simple baseline selections before allowing it
+   to change the live watchlist.
+
+#### What this improves
+
+- Allows Chiron to discover research candidates outside a permanently fixed manual watchlist.
+- Keeps broad-universe screening inexpensive and understandable.
+- Provides a reproducible explanation for why a company entered the research universe.
+
+#### What this does not improve
+
+A screener cannot guarantee profitable stocks. Strong company revenue or margins can already be
+reflected in the price, and investor expectations can cause a stock to fall after objectively good
+results. This feature also requires broader company, sector, and price data whose availability,
+licensing, survivorship history, and cost must be validated.
+
+#### Acceptance checks
+
+- Historical screening uses only companies and data that existed at each historical cutoff.
+- Delisted or later-unsuccessful companies are not silently removed from historical universes.
+- No outcome from the screened event enters its own screening inputs.
+- Every proposed company has a stored, human-readable reason and complete input snapshot.
+- The dashboard labels results as research candidates, never guaranteed investments.
+- The same historical sample compares the screener with fixed, random, and equal-weight universes.
 
 ### Anchor critical append-only history outside the primary database
 

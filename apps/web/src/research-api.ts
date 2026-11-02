@@ -45,6 +45,21 @@ export interface ResearchEarningsEvent {
   latestPrediction: ResearchPrediction | null
 }
 
+export interface ResearchCompany {
+  id: string
+  legalName: string
+  ticker: string
+  exchange: string | null
+  sector: string | null
+  isActive: boolean
+}
+
+export interface ResearchOverview {
+  predictionEvents: ResearchEarningsEvent[]
+  unpredictedEvents: ResearchEarningsEvent[]
+  watchlistCompanies: ResearchCompany[]
+}
+
 export interface ResearchEvidenceSource {
   documentId: string
   role: 'current' | 'previous'
@@ -74,8 +89,12 @@ interface GraphQlError {
   message: string
 }
 
-interface RecentPredictionEventsResponse {
-  data?: { recentPredictionEvents: ResearchEarningsEvent[] }
+interface ResearchOverviewResponse {
+  data?: {
+    recentPredictionEvents: ResearchEarningsEvent[]
+    recentUnpredictedEvents: ResearchEarningsEvent[]
+    watchlistCompanies: ResearchCompany[]
+  }
   errors?: GraphQlError[]
 }
 
@@ -87,11 +106,30 @@ interface PredictionEvidenceResponse {
 const ResearchApiConfig = {
   endpoint: '/graphql',
   recentEventsLimit: 25,
+  recentUnpredictedEventsLimit: 25,
 } as const
 
-const RecentPredictionEventsQuery = /* GraphQL */ `
-  query RecentPredictionEvents($limit: Int!) {
-    recentPredictionEvents(limit: $limit) {
+const ResearchOverviewQuery = /* GraphQL */ `
+  query ResearchOverview($predictionLimit: Int!, $unpredictedLimit: Int!) {
+    watchlistCompanies {
+      id
+      legalName
+      ticker
+      exchange
+      sector
+      isActive
+    }
+    recentUnpredictedEvents(limit: $unpredictedLimit) {
+      id
+      companyId
+      companyName
+      ticker
+      sector
+      periodEnd
+      detectedAt
+      status
+    }
+    recentPredictionEvents(limit: $predictionLimit) {
       id
       companyId
       companyName
@@ -159,21 +197,28 @@ const PredictionEvidenceQuery = /* GraphQL */ `
   }
 `
 
-export async function loadRecentPredictionEvents(): Promise<ResearchEarningsEvent[]> {
+export async function loadResearchOverview(): Promise<ResearchOverview> {
   const response = await fetch(ResearchApiConfig.endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      query: RecentPredictionEventsQuery,
-      variables: { limit: ResearchApiConfig.recentEventsLimit },
+      query: ResearchOverviewQuery,
+      variables: {
+        predictionLimit: ResearchApiConfig.recentEventsLimit,
+        unpredictedLimit: ResearchApiConfig.recentUnpredictedEventsLimit,
+      },
     }),
   })
 
   if (!response.ok) throw new Error(`Research API returned HTTP ${response.status}`)
-  const result = await response.json() as RecentPredictionEventsResponse
+  const result = await response.json() as ResearchOverviewResponse
   if (result.errors?.length) throw new Error(result.errors.map((error) => error.message).join('; '))
   if (!result.data) throw new Error('Research API returned no data')
-  return result.data.recentPredictionEvents
+  return {
+    predictionEvents: result.data.recentPredictionEvents,
+    unpredictedEvents: result.data.recentUnpredictedEvents,
+    watchlistCompanies: result.data.watchlistCompanies,
+  }
 }
 
 export async function loadPredictionEvidence(

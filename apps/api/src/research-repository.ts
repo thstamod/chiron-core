@@ -8,17 +8,23 @@ import {
 import { presentQualitativePrediction } from './prediction-presentation.js'
 import { presentScoreBreakdown } from './score-presentation.js'
 import type {
+  ResearchCompany,
   ResearchEarningsEvent,
   ResearchEvaluation,
   ResearchPrediction,
   ResearchRepository,
 } from './types.js'
 
-interface CompanyRow {
+interface EventCompanyRow {
   id: string
   ticker: string
   legal_name: string
   sector: string | null
+}
+
+interface WatchlistCompanyRow extends EventCompanyRow {
+  exchange: string | null
+  is_active: boolean
 }
 
 interface EvaluationRow {
@@ -51,8 +57,16 @@ interface EarningsEventRow {
   period_end: string | null
   detected_at: string
   status: string
-  companies: CompanyRow | CompanyRow[]
+  companies: EventCompanyRow | EventCompanyRow[]
   predictions: PredictionRow[]
+}
+
+interface UnpredictedEarningsEventRow {
+  id: string
+  period_end: string | null
+  detected_at: string
+  status: string
+  companies: EventCompanyRow | EventCompanyRow[]
 }
 
 interface PredictionEvidenceRow {
@@ -68,7 +82,7 @@ function validateAndNormalizePredictionId(value: string): string {
   return normalizedValue
 }
 
-function singleCompany(value: CompanyRow | CompanyRow[]): CompanyRow {
+function singleCompany(value: EventCompanyRow | EventCompanyRow[]): EventCompanyRow {
   const company = Array.isArray(value) ? value[0] : value
   if (!company) throw new Error('Earnings event is missing its company')
   return company
@@ -135,8 +149,46 @@ function presentEarningsEvent(row: EarningsEventRow): ResearchEarningsEvent {
   }
 }
 
+function presentUnpredictedEarningsEvent(
+  row: UnpredictedEarningsEventRow,
+): ResearchEarningsEvent {
+  const company = singleCompany(row.companies)
+  return {
+    id: row.id,
+    companyId: company.id,
+    companyName: company.legal_name,
+    ticker: company.ticker,
+    sector: company.sector,
+    periodEnd: row.period_end,
+    detectedAt: row.detected_at,
+    status: row.status,
+    latestPrediction: null,
+  }
+}
+
+function presentCompany(row: WatchlistCompanyRow): ResearchCompany {
+  return {
+    id: row.id,
+    legalName: row.legal_name,
+    ticker: row.ticker,
+    exchange: row.exchange,
+    sector: row.sector,
+    isActive: row.is_active,
+  }
+}
+
 export function createResearchRepository(client: SupabaseClient): ResearchRepository {
   return {
+    async getWatchlistCompanies(): Promise<ResearchCompany[]> {
+      const { data, error } = await client
+        .from(ApiDatabaseTable.companies)
+        .select('id,ticker,legal_name,exchange,sector,is_active')
+        .order('ticker', { ascending: true })
+
+      if (error) throw new Error(`Could not load watchlist companies: ${error.message}`)
+      return (data as WatchlistCompanyRow[]).map(presentCompany)
+    },
+
     async getRecentPredictionEvents(limit: number): Promise<ResearchEarningsEvent[]> {
       const { data, error } = await client
         .from(ApiDatabaseTable.earningsEvents)
@@ -174,6 +226,25 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
 
       if (error) throw new Error(`Could not load recent prediction events: ${error.message}`)
       return (data as EarningsEventRow[]).map(presentEarningsEvent)
+    },
+
+    async getRecentUnpredictedEvents(limit: number): Promise<ResearchEarningsEvent[]> {
+      const { data, error } = await client
+        .from(ApiDatabaseTable.earningsEvents)
+        .select(`
+          id,
+          period_end,
+          detected_at,
+          status,
+          companies!inner(id,ticker,legal_name,sector),
+          predictions()
+        `)
+        .is('predictions', null)
+        .order('detected_at', { ascending: false })
+        .limit(limit)
+
+      if (error) throw new Error(`Could not load unpredicted earnings events: ${error.message}`)
+      return (data as UnpredictedEarningsEventRow[]).map(presentUnpredictedEarningsEvent)
     },
 
     async getPredictionEvidence(predictionId) {

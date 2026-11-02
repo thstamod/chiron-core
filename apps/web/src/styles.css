@@ -32,7 +32,7 @@ h1 { margin-bottom: 7px; font-size: clamp(25px, 3vw, 34px); letter-spacing: -.03
 h2 { margin-bottom: 4px; font-size: 18px; }
 h3 { margin-bottom: 5px; font-size: 13px; }
 .subtitle { margin-bottom: 0; color: #68737d; font-size: 14px; }
-.page-heading > button { padding: 10px 14px; border: 1px solid #d6dde2; border-radius: 9px; color: #18212a; background: #fff; }
+.watchlist-count { padding: 8px 11px; border-radius: 999px; color: #3156a3; background: #edf2ff; font-size: 12px; font-weight: 650; white-space: nowrap; }
 
 .overview-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, .7fr); gap: 18px; margin-top: 25px; }
 .panel { border: 1px solid #dfe4e8; border-radius: 14px; background: #fff; box-shadow: 0 8px 28px rgba(35, 46, 58, .05); }
@@ -113,14 +113,19 @@ h3 { margin-bottom: 5px; font-size: 13px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 13px 20px; border-top: 1px solid #e5e9ec; text-align: left; white-space: nowrap; }
 th { color: #76818b; background: #f8f9fa; font-size: 11px; font-weight: 600; }
-tbody tr { cursor: pointer; }
-tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
+.events-panel tbody tr { cursor: pointer; }
+.events-panel tbody tr:hover, .events-panel tbody tr.selected { background: #f6f8f9; }
 .row-button { display: grid; gap: 2px; padding: 0; border: 0; color: inherit; background: none; text-align: left; }
 .row-button span { color: #76818b; font-size: 11px; }
 .status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; color: #18794e; background: #e7f6ee; font-size: 11px; }
 .status-pill.maintained { color: #68737d; background: #edf0f2; }
 .status-pill.lowered { color: #b42318; background: #fff0ef; }
 .status-pill.unavailable, .status-pill.not_provided { color: #68737d; background: #edf0f2; }
+.status-pill.pending { color: #805b00; background: #fff6d9; }
+.status-pill.inactive { color: #68737d; background: #edf0f2; }
+.data-panel { margin-top: 18px; overflow: hidden; }
+.secondary-table-value { display: block; margin-top: 2px; color: #76818b; font-size: 11px; }
+.empty-data-message { padding: 20px; border-top: 1px solid #e5e9ec; color: #68737d; font-size: 13px; }
 .capitalize { text-transform: capitalize; }
 
 @media (max-width: 800px) {
@@ -134,7 +139,7 @@ tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
   .evidence-list { grid-template-columns: 1fr; }
   .signal-grid { grid-template-columns: 1fr; }
   .page-heading { align-items: flex-start; }
-  .page-heading > button { display: none; }
+  .watchlist-count { display: none; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -144,7 +149,7 @@ tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
   .sidebar a:hover, .sidebar a.active, .signal-grid article, .score-totals span, tbody tr:hover, tbody tr.selected { color: #edf2f5; background: #1c242d; }
   .content, .app-shell { background: #0d1116; }
   h1, h2, h3, .brand, .process-list strong { color: #edf2f5; }
-  .page-heading > button { color: #edf2f5; border-color: #36414c; background: #151b22; }
+  .watchlist-count { color: #9fb9ff; background: #202c49; }
   .message-panel button { color: #edf2f5; border-color: #36414c; background: #151b22; }
   .company-mark { color: #9fb9ff; background: #202c49; }
   .risk { color: #efc35d; background: #392f17; }
@@ -162,4 +167,7 @@ tbody tr:hover, tbody tr.selected { background: #f6f8f9; }
   .status-pill { color: #70d6a3; background: #17362a; }
   .status-pill.maintained { color: #a7b1ba; background: #252d35; }
   .status-pill.lowered { color: #ff928a; background: #3d2222; }
+  .status-pill.pending { color: #efc35d; background: #392f17; }
+  .status-pill.inactive { color: #a7b1ba; background: #252d35; }
+  .empty-data-message { border-color: #2b3540; }
 }

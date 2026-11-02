@@ -52,6 +52,15 @@ export interface ResearchEarningsEvent {
   latestPrediction: ResearchPrediction | null
 }
 
+export interface ResearchCompany {
+  id: string
+  legalName: string
+  ticker: string
+  exchange: string | null
+  sector: string | null
+  isActive: boolean
+}
+
 export type ResearchEvidenceCategory =
   | 'guidance'
   | 'margin_direction'
@@ -85,6 +94,8 @@ export interface ResearchPredictionEvidence {
 }
 
 export interface ResearchRepository {
+  getWatchlistCompanies(): Promise<ResearchCompany[]>
   getRecentPredictionEvents(limit: number): Promise<ResearchEarningsEvent[]>
+  getRecentUnpredictedEvents(limit: number): Promise<ResearchEarningsEvent[]>
   getPredictionEvidence(predictionId: string): Promise<ResearchPredictionEvidence | null>
 }

@@ -20,13 +20,24 @@ export const apiSchema = createSchema<ApiContext>({
   typeDefs: /* GraphQL */ `
     type Query {
       health: ApiHealth!
+      watchlistCompanies: [Company!]!
       recentPredictionEvents(limit: Int = 25): [EarningsEvent!]!
+      recentUnpredictedEvents(limit: Int = 25): [EarningsEvent!]!
       predictionEvidence(predictionId: ID!): PredictionEvidence
     }
 
     type ApiHealth {
       service: String!
       ready: Boolean!
+    }
+
+    type Company {
+      id: ID!
+      legalName: String!
+      ticker: String!
+      exchange: String
+      sector: String
+      isActive: Boolean!
     }
 
     type EarningsEvent {
@@ -109,11 +120,23 @@ export const apiSchema = createSchema<ApiContext>({
   resolvers: {
     Query: {
       health: () => ({ service: 'chiron-api', ready: true }),
+      watchlistCompanies: (
+        _parent: unknown,
+        _argumentsValue: Record<string, never>,
+        context: ApiContext,
+      ) => context.repository.getWatchlistCompanies(),
       recentPredictionEvents: (
         _parent: unknown,
         argumentsValue: { limit?: number | null },
         context: ApiContext,
       ) => context.repository.getRecentPredictionEvents(normalizedEventLimit(argumentsValue.limit)),
+      recentUnpredictedEvents: (
+        _parent: unknown,
+        argumentsValue: { limit?: number | null },
+        context: ApiContext,
+      ) => context.repository.getRecentUnpredictedEvents(
+        normalizedEventLimit(argumentsValue.limit),
+      ),
       predictionEvidence: (
         _parent: unknown,
         argumentsValue: { predictionId: string },

@@ -13,14 +13,16 @@ flowchart TD
     A[Company publishes its results] --> B[Collect original reports]
     B --> C[Organize related documents]
     C --> T[Create versioned readable text]
-    T -. Planned .-> D[Extract numbers and management statements]
-    D -. Planned .-> E[Save a research score and its evidence]
-    E -. Planned .-> F[Observe prices after 1, 5 and 20 trading days]
-    F -. Planned .-> G[Compare with the market and sector]
+    T --> D[Extract numbers and management statements]
+    D --> E[Save a research score and its evidence]
+    E --> F[Observe prices after 1, 5 and 20 trading days]
+    F --> G[Compare with the market and sector]
     G -. Planned .-> H[Measure whether the score was useful]
 ```
 
-Solid arrows describe the collection pipeline implemented today. Dashed arrows describe future work. The Vue dashboard currently displays example data, including example scores and results; those are not live predictions.
+Solid arrows describe the implemented research pipeline. A dashed arrow marks the later research
+validation step, which needs many reviewed outcomes. The Vue dashboard reads stored forward records
+through the local GraphQL API; it does not present demo results as real predictions.
 
 The **SEC** is the US regulator that receives company reports. A **filing** is a report submitted to it. SEC **EDGAR** is the system where those filings can be retrieved.
 
@@ -34,23 +36,28 @@ flowchart TD
     W --> DB[Supabase PostgreSQL: structured records]
     W --> ST[Supabase private Storage: original files and readable text]
     DEV[Your laptop: pnpm dev] --> V[Vue dashboard in browser]
-    DEMO[demo-data.ts: example records] --> V
+    V --> API[Local Node GraphQL API]
+    API --> DB
 ```
 
 The worker is a command-line program that runs a job and exits. It is not a continuously running server. Supabase provides both PostgreSQL, which holds database rows, and Storage, which holds files such as `.htm` documents.
 
-The dashboard currently reads `demo-data.ts`. There is no live dashboard connection to your Supabase data yet.
+The browser never receives the Supabase secret. It requests approved fields from the local GraphQL
+API, and only that server reads Supabase.
 
 ## 3. Repository and file map
 
 ```mermaid
 flowchart TD
     ROOT[chiron-core] --> WEB[apps/web: Vue interface]
+    ROOT --> API[apps/api: read-only GraphQL server]
     ROOT --> WORKER[apps/worker: collection jobs]
     ROOT --> SHARED[packages/shared: TypeScript types]
     ROOT --> SQL[supabase/migrations: database changes]
     ROOT --> ACTION[.github/workflows: scheduled commands]
     WEB --> TYPES[shared/src/index.ts]
+    WEB --> API
+    API --> TYPES
     WORKER --> TYPES
 ```
 
@@ -422,21 +429,23 @@ flowchart TD
     HTML[index.html] --> MAIN[main.ts: mount Vue]
     MAIN --> APP[App.vue]
     MAIN --> CSS[styles.css]
-    DATA[demo-data.ts] --> APP
-    TYPES[shared: DemoEarningsEvent type] --> DATA
+    API[research-api.ts: GraphQL requests] --> APP
     APP --> CLICK[User chooses a company row]
     CLICK --> ID[selectedId ref changes]
     ID --> SELECT[selectedEvent computed recalculates]
     SELECT --> UI[Vue updates event details]
 ```
 
-`scoreLabel()` formats positive numbers with a `+`. The example records supply scores, guidance and results. The demo's displayed processing stages illustrate the intended product; they are not evidence that extraction or prediction jobs are running. Some navigation links and buttons are placeholders.
+`scoreLabel()` formats positive numbers with a `+`. The dashboard separates frozen prediction
+events, recent events without a prediction, and the complete company watchlist. Prediction evidence
+comes from the immutable snapshot and its verified SEC source documents.
 
 ### Planned review and correction interface
 
-The sidebar's **Review queue** link is currently a placeholder. When the dashboard reads live data,
-the queue should separate extractions that are unreviewed, invalid, accepted, corrected, or rejected.
-It must not present a technically valid LLM response as human-reviewed.
+The current **Unpredicted events** section is visibility, not a review workflow. It does not claim
+that every older event needs action or that a technically valid LLM response was human-reviewed.
+The future review interface should separately show extractions that are unreviewed, invalid,
+accepted, corrected, or rejected.
 
 An event-details view should display the latest accepted or corrected extraction by default and label
 its review state clearly. It should also allow the researcher to inspect:
