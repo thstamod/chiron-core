@@ -111,3 +111,65 @@ test('loads the watchlist and unpredicted events through explicit repository met
   assert.equal(eventDetails.derivedMetrics[0]?.metricCode, 'net_margin_percent')
   assert.equal(eventDetails.derivedMetrics[0]?.value, '10.25')
 })
+
+test('exposes the frozen qualitative extraction audit through prediction evidence', async () => {
+  const repository: ResearchRepository = {
+    async getWatchlistCompanies() { return [] },
+    async getRecentPredictionEvents() { return [] },
+    async getRecentUnpredictedEvents() { return [] },
+    async getEventDetails() { return null },
+    async getPredictionEvidence(predictionId) {
+      return {
+        predictionId,
+        extractionSchemaVersion: 'qualitative-earnings-v4',
+        evidence: [],
+        extractionAudit: {
+          promptVersion: 'baseline-v6',
+          requestedModelName: 'gpt-test',
+          resolvedModelName: 'gpt-test-resolved',
+          providerName: 'openai',
+          inputSelectionVersion: 'qualitative-input-selection-v1',
+          finishedAt: '2026-10-30T17:01:00.000Z',
+          tokenUsageJson: '{"inputTokens":100}',
+          validationStatus: 'valid',
+          originalSchemaVersion: 'qualitative-earnings-v4',
+          originalOutputFingerprint: 'a'.repeat(64),
+          originalOutputJson: '{"summary":"original"}',
+          reviewDecision: 'corrected',
+          reviewerLabel: 'owner',
+          reviewNotes: 'Corrected one risk.',
+          reviewVersion: 'manual-qualitative-review-v1',
+          reviewedAt: '2026-10-30T17:30:00.000Z',
+          effectiveSource: 'corrected_review',
+          effectiveSchemaVersion: 'qualitative-earnings-v4',
+          effectiveOutputFingerprint: 'b'.repeat(64),
+          effectiveOutputJson: '{"summary":"corrected"}',
+        },
+      }
+    },
+  }
+
+  const result = await graphql({
+    schema: apiSchema,
+    source: `query {
+      predictionEvidence(predictionId: "2a545c05-ef0e-43ea-88a1-1ab0f610a7e9") {
+        extractionAudit {
+          validationStatus
+          reviewDecision
+          originalOutputJson
+          effectiveOutputJson
+        }
+      }
+    }`,
+    contextValue: { repository },
+  })
+
+  assert.equal(result.errors, undefined)
+  const predictionEvidence = result.data?.predictionEvidence as {
+    extractionAudit: Record<string, string>
+  }
+  assert.equal(predictionEvidence.extractionAudit.validationStatus, 'valid')
+  assert.equal(predictionEvidence.extractionAudit.reviewDecision, 'corrected')
+  assert.equal(predictionEvidence.extractionAudit.originalOutputJson, '{"summary":"original"}')
+  assert.equal(predictionEvidence.extractionAudit.effectiveOutputJson, '{"summary":"corrected"}')
+})

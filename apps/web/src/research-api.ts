@@ -125,6 +125,30 @@ export interface ResearchPredictionEvidence {
   predictionId: string
   extractionSchemaVersion: string
   evidence: ResearchQualitativeEvidence[]
+  extractionAudit: ResearchQualitativeExtractionAudit
+}
+
+export interface ResearchQualitativeExtractionAudit {
+  promptVersion: string
+  requestedModelName: string
+  resolvedModelName: string | null
+  providerName: string
+  inputSelectionVersion: string
+  finishedAt: string
+  tokenUsageJson: string
+  validationStatus: string
+  originalSchemaVersion: string
+  originalOutputFingerprint: string
+  originalOutputJson: string
+  reviewDecision: string
+  reviewerLabel: string
+  reviewNotes: string
+  reviewVersion: string
+  reviewedAt: string
+  effectiveSource: string
+  effectiveSchemaVersion: string
+  effectiveOutputFingerprint: string
+  effectiveOutputJson: string
 }
 
 interface GraphQlError {
@@ -239,6 +263,28 @@ const PredictionEvidenceQuery = /* GraphQL */ `
           publishedAt
           sourceUrl
         }
+      }
+      extractionAudit {
+        promptVersion
+        requestedModelName
+        resolvedModelName
+        providerName
+        inputSelectionVersion
+        finishedAt
+        tokenUsageJson
+        validationStatus
+        originalSchemaVersion
+        originalOutputFingerprint
+        originalOutputJson
+        reviewDecision
+        reviewerLabel
+        reviewNotes
+        reviewVersion
+        reviewedAt
+        effectiveSource
+        effectiveSchemaVersion
+        effectiveOutputFingerprint
+        effectiveOutputJson
       }
     }
   }

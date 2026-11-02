@@ -694,6 +694,23 @@ containing only approved dashboard fields. Derive it from the immutable predicti
 never replace, shorten, or mutate the original audit snapshot. Version the projection logic and
 retain the prediction ID so every displayed value can be traced back to its permanent source.
 
+#### Re-verify immutable prediction snapshots in the API
+
+**Priority:** Before public or commercial deployment
+
+Prediction creation currently validates the qualitative outputs and calculates the immutable
+snapshot fingerprint. The read API validates the snapshot's JSON schema and internal relationships,
+but it trusts the stored cryptographic fingerprints instead of recalculating every fingerprint on
+every dashboard request. This is sufficient for the small PoC because prediction rows are protected
+from normal updates and the worker verified them before insertion.
+
+For stronger protection against database corruption or privileged tampering, add one shared
+server-side snapshot verifier that uses the same canonical JSON and fingerprint rules as prediction
+creation. Run it when a snapshot is first read and cache the verified result, verify snapshots in a
+background integrity job, or verify them while building the compact dashboard read model. Avoid
+repeating all cryptographic work for every page refresh. A mismatch must hide the affected research
+result, create an operational alert, and never silently recalculate or replace the frozen prediction.
+
 #### Graceful API shutdown before production deployment
 
 The local API currently exits when its process is stopped. Before production deployment, handle
@@ -730,6 +747,14 @@ page size, and execution time need limits so one request cannot create excessive
 User accounts and public internet access are not needed for the local PoC and should not be added
 before they are required.
 
+Reviewer labels and free-form review notes also require an explicit publication policy before the
+API is exposed publicly. They may eventually contain a person's name, email address, internal
+reasoning, or other private operational information. Keep them available for the local audit trail,
+but before public deployment either validate them as intentionally public text, expose a separate
+sanitized public summary, or restrict the complete review metadata to an authenticated owner view.
+Internal extraction IDs, review IDs, and provider request IDs must remain server-side unless a
+specific public use is documented.
+
 #### Acceptance checks
 
 - No Supabase secret or server-only environment variable appears in the frontend source or build.
@@ -756,7 +781,9 @@ before they are required.
 A reviewer uses a command-line action to accept, correct, or reject an LLM extraction. A correction
 requires a complete validated JSON file. The original `extraction_runs` row remains immutable, the
 decision is appended to `extraction_reviews`, and the effective-output selector chooses the newest
-usable human-reviewed result. This is auditable but inconvenient for routine review.
+usable human-reviewed result. The current dashboard can inspect the original and effective JSON
+frozen inside an existing prediction, but creating a new review remains a manual command-line task.
+This is auditable but inconvenient for routine review.
 
 #### Proposed behavior
 

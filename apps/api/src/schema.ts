@@ -139,6 +139,30 @@ export const apiSchema = createSchema<ApiContext>({
       predictionId: ID!
       extractionSchemaVersion: String!
       evidence: [QualitativeEvidence!]!
+      extractionAudit: QualitativeExtractionAudit!
+    }
+
+    type QualitativeExtractionAudit {
+      promptVersion: String!
+      requestedModelName: String!
+      resolvedModelName: String
+      providerName: String!
+      inputSelectionVersion: String!
+      finishedAt: String!
+      tokenUsageJson: String!
+      validationStatus: String!
+      originalSchemaVersion: String!
+      originalOutputFingerprint: String!
+      originalOutputJson: String!
+      reviewDecision: String!
+      reviewerLabel: String!
+      reviewNotes: String!
+      reviewVersion: String!
+      reviewedAt: String!
+      effectiveSource: String!
+      effectiveSchemaVersion: String!
+      effectiveOutputFingerprint: String!
+      effectiveOutputJson: String!
     }
 
     type QualitativeEvidence {

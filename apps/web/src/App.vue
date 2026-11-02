@@ -132,6 +132,12 @@ function scoreComponentClass(points: number): string {
   return 'neutral'
 }
 
+function effectiveOutputExplanation(evidence: ResearchPredictionEvidence): string {
+  return evidence.extractionAudit.effectiveSource === 'original'
+    ? 'The reviewer accepted the original LLM output unchanged. This exact JSON was used for scoring.'
+    : 'The reviewer corrected the original LLM output. The corrected JSON was used for scoring.'
+}
+
 function marketComparison(prediction: ResearchPrediction | null): string {
   const day20Evaluation = prediction?.evaluations.find((evaluation) => evaluation.horizonDays === 20)
   if (!day20Evaluation) return UiText.waitingForResult
@@ -342,6 +348,64 @@ watch(
             <p class="immutable-note">These timestamps and planned market sessions cannot be changed after prediction creation.</p>
           </section>
         </div>
+
+        <section v-if="selectedEvent.latestPrediction" class="panel extraction-audit-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Immutable LLM audit trail</p><h2>Reviewed qualitative JSON</h2></div>
+            <span v-if="predictionEvidence" class="capitalize">
+              {{ displayValue(predictionEvidence.extractionAudit.reviewDecision) }} review
+            </span>
+          </div>
+
+          <div v-if="isEvidenceLoading" class="evidence-message" aria-live="polite">
+            Loading frozen extraction audit…
+          </div>
+          <div v-else-if="evidenceLoadError" class="evidence-message evidence-error" role="alert">
+            <span>{{ evidenceLoadError }}</span>
+            <button type="button" @click="refreshPredictionEvidence(selectedEvent.latestPrediction.id)">Try again</button>
+          </div>
+          <template v-else-if="predictionEvidence">
+            <dl class="extraction-audit-metadata">
+              <div><dt>Validation</dt><dd class="capitalize">{{ displayValue(predictionEvidence.extractionAudit.validationStatus) }}</dd></div>
+              <div><dt>Prompt version</dt><dd>{{ predictionEvidence.extractionAudit.promptVersion }}</dd></div>
+              <div><dt>Model</dt><dd>{{ predictionEvidence.extractionAudit.resolvedModelName ?? predictionEvidence.extractionAudit.requestedModelName }}</dd></div>
+              <div><dt>Provider</dt><dd>{{ predictionEvidence.extractionAudit.providerName }}</dd></div>
+              <div><dt>Input selection</dt><dd>{{ predictionEvidence.extractionAudit.inputSelectionVersion }}</dd></div>
+              <div><dt>Extraction finished</dt><dd>{{ displayTimestamp(predictionEvidence.extractionAudit.finishedAt) }}</dd></div>
+              <div><dt>Reviewer</dt><dd>{{ predictionEvidence.extractionAudit.reviewerLabel }}</dd></div>
+              <div><dt>Reviewed</dt><dd>{{ displayTimestamp(predictionEvidence.extractionAudit.reviewedAt) }}</dd></div>
+              <div><dt>Effective source</dt><dd class="capitalize">{{ displayValue(predictionEvidence.extractionAudit.effectiveSource) }}</dd></div>
+              <div><dt>Review version</dt><dd>{{ predictionEvidence.extractionAudit.reviewVersion }}</dd></div>
+            </dl>
+            <p class="review-notes"><strong>Review notes:</strong> {{ predictionEvidence.extractionAudit.reviewNotes }}</p>
+            <p class="effective-output-explanation">
+              {{ effectiveOutputExplanation(predictionEvidence) }}
+            </p>
+            <div class="extraction-json-grid">
+              <details>
+                <summary>
+                  <span>Original LLM output</span>
+                  <small>{{ predictionEvidence.extractionAudit.originalSchemaVersion }}</small>
+                </summary>
+                <p class="json-fingerprint">Fingerprint: {{ predictionEvidence.extractionAudit.originalOutputFingerprint }}</p>
+                <pre>{{ predictionEvidence.extractionAudit.originalOutputJson }}</pre>
+              </details>
+              <details open>
+                <summary>
+                  <span>Effective reviewed output</span>
+                  <small>{{ predictionEvidence.extractionAudit.effectiveSchemaVersion }}</small>
+                </summary>
+                <p class="json-fingerprint">Fingerprint: {{ predictionEvidence.extractionAudit.effectiveOutputFingerprint }}</p>
+                <pre>{{ predictionEvidence.extractionAudit.effectiveOutputJson }}</pre>
+              </details>
+            </div>
+            <details class="token-usage-details">
+              <summary>Provider token usage</summary>
+              <pre>{{ predictionEvidence.extractionAudit.tokenUsageJson }}</pre>
+            </details>
+          </template>
+          <div v-else class="evidence-message">No frozen extraction audit is available.</div>
+        </section>
 
         <section v-if="selectedEvent.latestPrediction" class="panel evidence-panel">
           <div class="section-heading">

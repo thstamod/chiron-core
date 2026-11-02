@@ -133,6 +133,30 @@ export interface ResearchPredictionEvidence {
   predictionId: string
   extractionSchemaVersion: string
   evidence: ResearchQualitativeEvidence[]
+  extractionAudit: ResearchQualitativeExtractionAudit
+}
+
+export interface ResearchQualitativeExtractionAudit {
+  promptVersion: string
+  requestedModelName: string
+  resolvedModelName: string | null
+  providerName: string
+  inputSelectionVersion: string
+  finishedAt: string
+  tokenUsageJson: string
+  validationStatus: string
+  originalSchemaVersion: string
+  originalOutputFingerprint: string
+  originalOutputJson: string
+  reviewDecision: string
+  reviewerLabel: string
+  reviewNotes: string
+  reviewVersion: string
+  reviewedAt: string
+  effectiveSource: string
+  effectiveSchemaVersion: string
+  effectiveOutputFingerprint: string
+  effectiveOutputJson: string
 }
 
 export interface ResearchRepository {

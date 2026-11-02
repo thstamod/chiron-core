@@ -101,7 +101,10 @@ flowchart TD
 | `apps/worker/src/*.test.ts` | Checks selected parsing, grouping and pagination behaviors. |
 | `apps/web/index.html` | Browser page containing the Vue mount point. |
 | `apps/web/src/main.ts` | Starts Vue and imports the stylesheet. |
-| `apps/web/src/App.vue` | Displays the demo interface and handles selecting a company row. |
+| `apps/api/src/evidence-presentation.ts` | Validates frozen qualitative evidence and exposes the original and effective reviewed JSON audit trail from each prediction snapshot. |
+| `apps/api/src/research-repository.ts` | Reads only approved research records from Supabase for the GraphQL API. |
+| `apps/api/src/schema.ts` | Defines the read-only GraphQL operations and fields available to the dashboard. |
+| `apps/web/src/App.vue` | Displays live research records, frozen extraction audits, financial details, evidence, and selectable company events. |
 | `apps/web/src/demo-data.ts` | Example events for the public demonstration. |
 | `apps/web/src/styles.css` | Dashboard appearance and layout. |
 | `apps/web/vite.config.ts` | Configures Vite, the frontend development/build tool. |
