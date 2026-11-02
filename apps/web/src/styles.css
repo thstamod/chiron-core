@@ -146,7 +146,7 @@ th { color: #76818b; background: #f8f9fa; font-size: 11px; font-weight: 600; }
   :root { color: #edf2f5; background: #0d1116; }
   .topbar, .sidebar, .panel { background: #151b22; border-color: #2b3540; }
   .sidebar { border-bottom-color: #2b3540; }
-  .sidebar a:hover, .sidebar a.active, .signal-grid article, .score-totals span, tbody tr:hover, tbody tr.selected { color: #edf2f5; background: #1c242d; }
+  .sidebar a:hover, .sidebar a.active, .signal-grid article, .score-totals span, .events-panel tbody tr:hover, .events-panel tbody tr.selected { color: #edf2f5; background: #1c242d; }
   .content, .app-shell { background: #0d1116; }
   h1, h2, h3, .brand, .process-list strong { color: #edf2f5; }
   .watchlist-count { color: #9fb9ff; background: #202c49; }
