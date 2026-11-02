@@ -218,7 +218,7 @@ function claimForFieldPath(
   throw new Error(`Unsupported qualitative evidence path: ${fieldPath}`)
 }
 
-function trustedSecSourceUrl(value: string): string {
+export function validateTrustedSecArchiveUrl(value: string): string {
   let url: URL
   try {
     url = new URL(value)
@@ -281,7 +281,7 @@ export function presentPredictionEvidence(
           role: frozenDocument.role,
           documentType: frozenDocument.documentType,
           publishedAt: frozenDocument.publishedAt,
-          sourceUrl: trustedSecSourceUrl(databaseDocument.source_url),
+          sourceUrl: validateTrustedSecArchiveUrl(databaseDocument.source_url),
         },
       }
     }),

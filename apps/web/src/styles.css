@@ -124,8 +124,21 @@ th { color: #76818b; background: #f8f9fa; font-size: 11px; font-weight: 600; }
 .status-pill.pending { color: #805b00; background: #fff6d9; }
 .status-pill.inactive { color: #68737d; background: #edf0f2; }
 .data-panel { margin-top: 18px; overflow: hidden; }
-.secondary-table-value { display: block; margin-top: 2px; color: #76818b; font-size: 11px; }
+.secondary-table-value { display: block; max-width: 340px; margin-top: 2px; color: #76818b; font-size: 11px; overflow-wrap: anywhere; white-space: normal; }
 .empty-data-message { padding: 20px; border-top: 1px solid #e5e9ec; color: #68737d; font-size: 13px; }
+.financial-details-panel, .source-documents-panel { margin-top: 18px; overflow: hidden; }
+.event-details-message { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; border-top: 1px solid #e5e9ec; color: #68737d; font-size: 13px; }
+.event-details-message button { padding: 8px 11px; border: 1px solid #d6dde2; border-radius: 8px; background: #fff; }
+.derived-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 20px 20px; }
+.derived-metric-grid article { min-width: 0; padding: 14px; border: 1px solid #e5e9ec; border-radius: 10px; }
+.derived-metric-grid h3 { overflow-wrap: anywhere; }
+.derived-metric-grid strong, .derived-metric-grid span { display: block; }
+.derived-metric-grid strong { margin-top: 9px; color: #3156a3; font-size: 18px; }
+.derived-metric-grid span { margin-top: 7px; color: #76818b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; overflow-wrap: anywhere; }
+.financial-details-panel code, .source-documents-panel code { font-size: 10px; }
+.financial-details-panel a, .source-documents-panel a { color: #3156a3; font-weight: 650; text-decoration: none; }
+.financial-details-panel a:hover, .source-documents-panel a:hover { text-decoration: underline; }
+.fingerprint { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .capitalize { text-transform: capitalize; }
 
 @media (max-width: 800px) {
@@ -138,6 +151,7 @@ th { color: #76818b; background: #f8f9fa; font-size: 11px; font-weight: 600; }
   .prediction-details-grid { grid-template-columns: 1fr; }
   .evidence-list { grid-template-columns: 1fr; }
   .signal-grid { grid-template-columns: 1fr; }
+  .derived-metric-grid { grid-template-columns: 1fr; }
   .page-heading { align-items: flex-start; }
   .watchlist-count { display: none; }
 }
@@ -170,4 +184,7 @@ th { color: #76818b; background: #f8f9fa; font-size: 11px; font-weight: 600; }
   .status-pill.pending { color: #efc35d; background: #392f17; }
   .status-pill.inactive { color: #a7b1ba; background: #252d35; }
   .empty-data-message { border-color: #2b3540; }
+  .event-details-message, .derived-metric-grid article { border-color: #2b3540; }
+  .event-details-message button { color: #edf2f5; border-color: #36414c; background: #151b22; }
+  .derived-metric-grid strong, .financial-details-panel a, .source-documents-panel a { color: #9fb9ff; }
 }

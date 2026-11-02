@@ -20,6 +20,8 @@ export const ApiDatabaseTable = {
   companies: 'companies',
   documents: 'documents',
   earningsEvents: 'earnings_events',
+  financialDerivedMetrics: 'financial_derived_metrics',
+  financialMetrics: 'financial_metrics',
   predictions: 'predictions',
 } as const
 

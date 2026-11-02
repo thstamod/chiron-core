@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RequiredEvaluationHorizons, ScoreFormat, UiText } from './constants'
 import {
+  AccountingBasisLabel,
+  FinancialMetricLabel,
+  FinancialMetricUnit,
+  RequiredEvaluationHorizons,
+  ScoreFormat,
+  SourceDocumentTypeLabel,
+  UiText,
+} from './constants'
+import {
+  loadEventDetails,
   loadResearchOverview,
   loadPredictionEvidence,
   type ResearchCompany,
+  type ResearchEventDetails,
   type ResearchEarningsEvent,
   type ResearchPrediction,
   type ResearchPredictionEvidence,
@@ -20,6 +30,10 @@ const predictionEvidence = ref<ResearchPredictionEvidence | null>(null)
 const isEvidenceLoading = ref(false)
 const evidenceLoadError = ref<string | null>(null)
 let evidenceRequestSequence = 0
+const eventDetails = ref<ResearchEventDetails | null>(null)
+const isEventDetailsLoading = ref(false)
+const eventDetailsLoadError = ref<string | null>(null)
+let eventDetailsRequestSequence = 0
 
 const selectedEvent = computed(() => (
   events.value.find((event) => event.id === selectedId.value) ?? events.value[0] ?? null
@@ -60,6 +74,56 @@ function displayTimestamp(value: string): string {
     timeZone: 'UTC',
   }).format(new Date(value))
   return `${formattedTimestamp} UTC`
+}
+
+function financialMetricLabel(metricCode: string): string {
+  return FinancialMetricLabel[metricCode] ?? displayValue(metricCode)
+}
+
+function accountingBasisLabel(accountingBasis: string): string {
+  return AccountingBasisLabel[accountingBasis] ?? displayValue(accountingBasis)
+}
+
+function sourceDocumentTypeLabel(documentType: string): string {
+  return SourceDocumentTypeLabel[documentType] ?? displayValue(documentType)
+}
+
+function financialMetricValue(value: string, unit: string): string {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) return `${value} ${unit}`
+  if (unit === FinancialMetricUnit.unitedStatesDollar) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(numericValue)
+  }
+  if (unit === FinancialMetricUnit.unitedStatesDollarPerShare) {
+    return `${new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 4,
+    }).format(numericValue)} per share`
+  }
+  if (unit === FinancialMetricUnit.percent) return `${numericValue.toFixed(2)}%`
+  if (unit === FinancialMetricUnit.percentagePoints) {
+    return `${numericValue.toFixed(2)} percentage points`
+  }
+  return `${new Intl.NumberFormat('en-US').format(numericValue)} ${unit}`
+}
+
+function fileSize(value: number | null): string {
+  if (value === null) return UiText.unavailable
+  return new Intl.NumberFormat('en-US', {
+    style: 'unit',
+    unit: 'kilobyte',
+    maximumFractionDigits: 1,
+  }).format(value / 1_000)
+}
+
+function metricSourceUrl(sourceDocumentId: string): string | null {
+  return eventDetails.value?.documents.find((document) => document.id === sourceDocumentId)
+    ?.sourceUrl ?? null
 }
 
 function scoreComponentClass(points: number): string {
@@ -132,10 +196,38 @@ async function refreshPredictionEvidence(predictionId: string | null): Promise<v
   }
 }
 
+async function refreshEventDetails(eventId: string | null): Promise<void> {
+  const requestSequence = ++eventDetailsRequestSequence
+  eventDetails.value = null
+  eventDetailsLoadError.value = null
+  if (!eventId) {
+    isEventDetailsLoading.value = false
+    return
+  }
+
+  isEventDetailsLoading.value = true
+  try {
+    const loadedDetails = await loadEventDetails(eventId)
+    if (requestSequence === eventDetailsRequestSequence) eventDetails.value = loadedDetails
+  } catch (error) {
+    if (requestSequence === eventDetailsRequestSequence) {
+      eventDetailsLoadError.value = error instanceof Error
+        ? error.message
+        : 'Could not load event research details'
+    }
+  } finally {
+    if (requestSequence === eventDetailsRequestSequence) isEventDetailsLoading.value = false
+  }
+}
+
 onMounted(refreshEvents)
 watch(
   () => selectedEvent.value?.latestPrediction?.id ?? null,
   refreshPredictionEvidence,
+)
+watch(
+  () => selectedEvent.value?.id ?? null,
+  refreshEventDetails,
 )
 </script>
 
@@ -280,6 +372,78 @@ watch(
             </article>
           </div>
           <div v-else class="evidence-message">No validated qualitative evidence is available.</div>
+        </section>
+
+        <section class="panel financial-details-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Deterministic SEC/XBRL data</p><h2>Reported and calculated financial values</h2></div>
+            <span v-if="eventDetails">{{ eventDetails.reportedMetrics.length + eventDetails.derivedMetrics.length }} values</span>
+          </div>
+          <div v-if="isEventDetailsLoading" class="event-details-message" aria-live="polite">
+            Loading financial details…
+          </div>
+          <div v-else-if="eventDetailsLoadError" class="event-details-message evidence-error" role="alert">
+            <span>{{ eventDetailsLoadError }}</span>
+            <button type="button" @click="refreshEventDetails(selectedEvent.id)">Try again</button>
+          </div>
+          <template v-else-if="eventDetails">
+            <div v-if="eventDetails.derivedMetrics.length" class="derived-metric-grid">
+              <article v-for="metric in eventDetails.derivedMetrics" :key="metric.id">
+                <h3>{{ financialMetricLabel(metric.metricCode) }}</h3>
+                <strong>{{ financialMetricValue(metric.value, metric.unit) }}</strong>
+                <span>{{ metric.calculationVersion }}</span>
+              </article>
+            </div>
+            <div v-if="eventDetails.reportedMetrics.length" class="table-wrap">
+              <table>
+                <thead><tr><th>Reported value</th><th>Value</th><th>Period</th><th>Basis</th><th>Parser version</th><th>Source</th></tr></thead>
+                <tbody>
+                  <tr v-for="metric in eventDetails.reportedMetrics" :key="metric.id">
+                    <td><strong>{{ financialMetricLabel(metric.metricCode) }}</strong><span class="secondary-table-value">{{ metric.xbrlConcept }}</span></td>
+                    <td>{{ financialMetricValue(metric.value, metric.unit) }}</td>
+                    <td>{{ displayDate(metric.periodEnd) }}</td>
+                    <td>{{ accountingBasisLabel(metric.accountingBasis) }}</td>
+                    <td><code>{{ metric.extractionVersion }}</code></td>
+                    <td><a v-if="metricSourceUrl(metric.sourceDocumentId)" :href="metricSourceUrl(metric.sourceDocumentId) ?? undefined" target="_blank" rel="noopener noreferrer">Open SEC source</a><span v-else>{{ UiText.unavailable }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-if="!eventDetails.reportedMetrics.length && !eventDetails.derivedMetrics.length" class="empty-data-message">
+              No deterministic financial values are stored for this event.
+            </div>
+          </template>
+        </section>
+
+        <section class="panel source-documents-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Original archived evidence</p><h2>SEC source documents</h2></div>
+            <span v-if="eventDetails">{{ eventDetails.documents.length }} documents</span>
+          </div>
+          <div v-if="isEventDetailsLoading" class="event-details-message" aria-live="polite">
+            Loading source documents…
+          </div>
+          <div v-else-if="eventDetailsLoadError" class="event-details-message evidence-error">
+            Source documents are unavailable because the event-detail request failed.
+          </div>
+          <div v-else-if="eventDetails?.documents.length" class="table-wrap">
+            <table>
+              <thead><tr><th>Document type</th><th>Published</th><th>First collected</th><th>Archived size</th><th>Fingerprint</th><th>Official source</th></tr></thead>
+              <tbody>
+                <tr v-for="document in eventDetails.documents" :key="document.id">
+                  <td>{{ sourceDocumentTypeLabel(document.documentType) }}</td>
+                  <td>{{ displayTimestamp(document.publishedAt) }}</td>
+                  <td>{{ displayTimestamp(document.firstSeenAt) }}</td>
+                  <td>{{ fileSize(document.contentSizeBytes) }}</td>
+                  <td><code class="fingerprint">{{ document.contentSha256 }}</code></td>
+                  <td><a :href="document.sourceUrl" target="_blank" rel="noopener noreferrer">Open SEC document</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else-if="eventDetails" class="empty-data-message">
+            No source documents are linked to this event.
+          </div>
         </section>
 
         <section id="events" class="panel events-panel">

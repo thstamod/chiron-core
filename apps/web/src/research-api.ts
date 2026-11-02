@@ -60,6 +60,48 @@ export interface ResearchOverview {
   watchlistCompanies: ResearchCompany[]
 }
 
+export interface ResearchSourceDocument {
+  id: string
+  documentType: string
+  sourceUrl: string
+  publishedAt: string
+  firstSeenAt: string
+  contentSha256: string
+  contentSizeBytes: number | null
+}
+
+export interface ResearchReportedFinancialMetric {
+  id: string
+  metricCode: string
+  value: string
+  unit: string
+  accountingBasis: string
+  periodStart: string | null
+  periodEnd: string
+  sourceDocumentId: string
+  extractionVersion: string
+  xbrlConcept: string
+  sourceText: string
+  createdAt: string
+}
+
+export interface ResearchDerivedFinancialMetric {
+  id: string
+  metricCode: string
+  value: string
+  unit: string
+  calculationExpression: string
+  calculationVersion: string
+  createdAt: string
+}
+
+export interface ResearchEventDetails {
+  eventId: string
+  documents: ResearchSourceDocument[]
+  reportedMetrics: ResearchReportedFinancialMetric[]
+  derivedMetrics: ResearchDerivedFinancialMetric[]
+}
+
 export interface ResearchEvidenceSource {
   documentId: string
   role: 'current' | 'previous'
@@ -100,6 +142,11 @@ interface ResearchOverviewResponse {
 
 interface PredictionEvidenceResponse {
   data?: { predictionEvidence: ResearchPredictionEvidence | null }
+  errors?: GraphQlError[]
+}
+
+interface EventDetailsResponse {
+  data?: { earningsEventDetails: ResearchEventDetails | null }
   errors?: GraphQlError[]
 }
 
@@ -197,6 +244,46 @@ const PredictionEvidenceQuery = /* GraphQL */ `
   }
 `
 
+const EventDetailsQuery = /* GraphQL */ `
+  query EventDetails($eventId: ID!) {
+    earningsEventDetails(eventId: $eventId) {
+      eventId
+      documents {
+        id
+        documentType
+        sourceUrl
+        publishedAt
+        firstSeenAt
+        contentSha256
+        contentSizeBytes
+      }
+      reportedMetrics {
+        id
+        metricCode
+        value
+        unit
+        accountingBasis
+        periodStart
+        periodEnd
+        sourceDocumentId
+        extractionVersion
+        xbrlConcept
+        sourceText
+        createdAt
+      }
+      derivedMetrics {
+        id
+        metricCode
+        value
+        unit
+        calculationExpression
+        calculationVersion
+        createdAt
+      }
+    }
+  }
+`
+
 export async function loadResearchOverview(): Promise<ResearchOverview> {
   const response = await fetch(ResearchApiConfig.endpoint, {
     method: 'POST',
@@ -238,4 +325,21 @@ export async function loadPredictionEvidence(
   if (result.errors?.length) throw new Error(result.errors.map((error) => error.message).join('; '))
   if (!result.data?.predictionEvidence) throw new Error('Prediction evidence was not found')
   return result.data.predictionEvidence
+}
+
+export async function loadEventDetails(eventId: string): Promise<ResearchEventDetails> {
+  const response = await fetch(ResearchApiConfig.endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      query: EventDetailsQuery,
+      variables: { eventId },
+    }),
+  })
+
+  if (!response.ok) throw new Error(`Research API returned HTTP ${response.status}`)
+  const result = await response.json() as EventDetailsResponse
+  if (result.errors?.length) throw new Error(result.errors.map((error) => error.message).join('; '))
+  if (!result.data?.earningsEventDetails) throw new Error('Earnings event details were not found')
+  return result.data.earningsEventDetails
 }

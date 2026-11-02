@@ -663,7 +663,7 @@ company watchlist, and exact frozen evidence through the application-owned Node 
 `apps/api`. The API uses the Supabase secret only on the server, binds to the local computer, limits
 event lists, and returns approved presentation fields. Vue never receives the Supabase secret or
 queries Supabase directly. Authentication, public deployment controls, full pagination, review
-mutations, financial-detail queries, and outcome-detail queries are not implemented yet.
+mutations, reviewed-output detail queries, and outcome-detail queries are not implemented yet.
 
 #### Proposed behavior
 

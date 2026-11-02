@@ -61,6 +61,48 @@ export interface ResearchCompany {
   isActive: boolean
 }
 
+export interface ResearchSourceDocument {
+  id: string
+  documentType: string
+  sourceUrl: string
+  publishedAt: string
+  firstSeenAt: string
+  contentSha256: string
+  contentSizeBytes: number | null
+}
+
+export interface ResearchReportedFinancialMetric {
+  id: string
+  metricCode: string
+  value: string
+  unit: string
+  accountingBasis: string
+  periodStart: string | null
+  periodEnd: string
+  sourceDocumentId: string
+  extractionVersion: string
+  xbrlConcept: string
+  sourceText: string
+  createdAt: string
+}
+
+export interface ResearchDerivedFinancialMetric {
+  id: string
+  metricCode: string
+  value: string
+  unit: string
+  calculationExpression: string
+  calculationVersion: string
+  createdAt: string
+}
+
+export interface ResearchEventDetails {
+  eventId: string
+  documents: ResearchSourceDocument[]
+  reportedMetrics: ResearchReportedFinancialMetric[]
+  derivedMetrics: ResearchDerivedFinancialMetric[]
+}
+
 export type ResearchEvidenceCategory =
   | 'guidance'
   | 'margin_direction'
@@ -97,5 +139,6 @@ export interface ResearchRepository {
   getWatchlistCompanies(): Promise<ResearchCompany[]>
   getRecentPredictionEvents(limit: number): Promise<ResearchEarningsEvent[]>
   getRecentUnpredictedEvents(limit: number): Promise<ResearchEarningsEvent[]>
+  getEventDetails(eventId: string): Promise<ResearchEventDetails | null>
   getPredictionEvidence(predictionId: string): Promise<ResearchPredictionEvidence | null>
 }

@@ -23,6 +23,7 @@ export const apiSchema = createSchema<ApiContext>({
       watchlistCompanies: [Company!]!
       recentPredictionEvents(limit: Int = 25): [EarningsEvent!]!
       recentUnpredictedEvents(limit: Int = 25): [EarningsEvent!]!
+      earningsEventDetails(eventId: ID!): EarningsEventDetails
       predictionEvidence(predictionId: ID!): PredictionEvidence
     }
 
@@ -92,6 +93,48 @@ export const apiSchema = createSchema<ApiContext>({
       calculatedAt: String!
     }
 
+    type EarningsEventDetails {
+      eventId: ID!
+      documents: [SourceDocument!]!
+      reportedMetrics: [ReportedFinancialMetric!]!
+      derivedMetrics: [DerivedFinancialMetric!]!
+    }
+
+    type SourceDocument {
+      id: ID!
+      documentType: String!
+      sourceUrl: String!
+      publishedAt: String!
+      firstSeenAt: String!
+      contentSha256: String!
+      contentSizeBytes: Float
+    }
+
+    type ReportedFinancialMetric {
+      id: ID!
+      metricCode: String!
+      value: String!
+      unit: String!
+      accountingBasis: String!
+      periodStart: String
+      periodEnd: String!
+      sourceDocumentId: ID!
+      extractionVersion: String!
+      xbrlConcept: String!
+      sourceText: String!
+      createdAt: String!
+    }
+
+    type DerivedFinancialMetric {
+      id: ID!
+      metricCode: String!
+      value: String!
+      unit: String!
+      calculationExpression: String!
+      calculationVersion: String!
+      createdAt: String!
+    }
+
     type PredictionEvidence {
       predictionId: ID!
       extractionSchemaVersion: String!
@@ -137,6 +180,11 @@ export const apiSchema = createSchema<ApiContext>({
       ) => context.repository.getRecentUnpredictedEvents(
         normalizedEventLimit(argumentsValue.limit),
       ),
+      earningsEventDetails: (
+        _parent: unknown,
+        argumentsValue: { eventId: string },
+        context: ApiContext,
+      ) => context.repository.getEventDetails(argumentsValue.eventId),
       predictionEvidence: (
         _parent: unknown,
         argumentsValue: { predictionId: string },

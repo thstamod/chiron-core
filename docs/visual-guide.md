@@ -438,7 +438,9 @@ flowchart TD
 
 `scoreLabel()` formats positive numbers with a `+`. The dashboard separates frozen prediction
 events, recent events without a prediction, and the complete company watchlist. Prediction evidence
-comes from the immutable snapshot and its verified SEC source documents.
+comes from the immutable snapshot and its verified SEC source documents. Selecting an event also
+loads its original SEC documents, reported XBRL values, and versioned deterministic calculations
+through a separate bounded GraphQL query.
 
 ### Planned review and correction interface
 

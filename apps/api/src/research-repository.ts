@@ -5,12 +5,21 @@ import {
   presentPredictionEvidence,
   type EvidenceDocumentRow,
 } from './evidence-presentation.js'
+import {
+  presentDerivedFinancialMetric,
+  presentReportedFinancialMetric,
+  presentSourceDocument,
+  type DerivedFinancialMetricRow,
+  type ReportedFinancialMetricRow,
+  type SourceDocumentRow,
+} from './event-details-presentation.js'
 import { presentQualitativePrediction } from './prediction-presentation.js'
 import { presentScoreBreakdown } from './score-presentation.js'
 import type {
   ResearchCompany,
   ResearchEarningsEvent,
   ResearchEvaluation,
+  ResearchEventDetails,
   ResearchPrediction,
   ResearchRepository,
 } from './types.js'
@@ -76,9 +85,9 @@ interface PredictionEvidenceRow {
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function validateAndNormalizePredictionId(value: string): string {
+function validateAndNormalizeUuid(value: string, description: string): string {
   const normalizedValue = value.trim()
-  if (!uuidPattern.test(normalizedValue)) throw new Error('Prediction ID must be a valid UUID')
+  if (!uuidPattern.test(normalizedValue)) throw new Error(`${description} must be a valid UUID`)
   return normalizedValue
 }
 
@@ -247,8 +256,88 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
       return (data as UnpredictedEarningsEventRow[]).map(presentUnpredictedEarningsEvent)
     },
 
+    async getEventDetails(eventId: string): Promise<ResearchEventDetails | null> {
+      const normalizedEventId = validateAndNormalizeUuid(eventId, 'Earnings event ID')
+      const { data: eventData, error: eventError } = await client
+        .from(ApiDatabaseTable.earningsEvents)
+        .select('id')
+        .eq('id', normalizedEventId)
+        .maybeSingle()
+      if (eventError) throw new Error(`Could not load earnings event: ${eventError.message}`)
+      if (!eventData) return null
+
+      const [documentResult, reportedMetricResult, derivedMetricResult] = await Promise.all([
+        client
+          .from(ApiDatabaseTable.documents)
+          .select(`
+            id,
+            document_type,
+            source_url,
+            published_at,
+            first_seen_at,
+            content_sha256,
+            content_size_bytes
+          `)
+          .eq('earnings_event_id', normalizedEventId)
+          .order('published_at', { ascending: false }),
+        client
+          .from(ApiDatabaseTable.financialMetrics)
+          .select(`
+            id,
+            metric_code,
+            value_numeric,
+            unit,
+            accounting_basis,
+            period_start,
+            period_end,
+            source_document_id,
+            extraction_version,
+            xbrl_concept,
+            source_text,
+            created_at
+          `)
+          .eq('earnings_event_id', normalizedEventId)
+          .order('period_end', { ascending: false })
+          .order('metric_code', { ascending: true })
+          .order('created_at', { ascending: false }),
+        client
+          .from(ApiDatabaseTable.financialDerivedMetrics)
+          .select(`
+            id,
+            metric_code,
+            value_numeric,
+            unit,
+            calculation_expression,
+            calculation_version,
+            created_at
+          `)
+          .eq('earnings_event_id', normalizedEventId)
+          .order('created_at', { ascending: false })
+          .order('metric_code', { ascending: true }),
+      ])
+
+      if (documentResult.error) {
+        throw new Error(`Could not load event source documents: ${documentResult.error.message}`)
+      }
+      if (reportedMetricResult.error) {
+        throw new Error(`Could not load reported financial metrics: ${reportedMetricResult.error.message}`)
+      }
+      if (derivedMetricResult.error) {
+        throw new Error(`Could not load derived financial metrics: ${derivedMetricResult.error.message}`)
+      }
+
+      return {
+        eventId: normalizedEventId,
+        documents: (documentResult.data as SourceDocumentRow[]).map(presentSourceDocument),
+        reportedMetrics: (reportedMetricResult.data as ReportedFinancialMetricRow[])
+          .map(presentReportedFinancialMetric),
+        derivedMetrics: (derivedMetricResult.data as DerivedFinancialMetricRow[])
+          .map(presentDerivedFinancialMetric),
+      }
+    },
+
     async getPredictionEvidence(predictionId) {
-      const normalizedId = validateAndNormalizePredictionId(predictionId)
+      const normalizedId = validateAndNormalizeUuid(predictionId, 'Prediction ID')
       const { data: predictionData, error: predictionError } = await client
         .from(ApiDatabaseTable.predictions)
         .select('id,snapshot')
