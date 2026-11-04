@@ -49,6 +49,11 @@ test('normalizes inline XBRL scale, decimals, and negative signs without floatin
   assert.equal(normalizeXbrlNumericValue('0.05', '0', undefined, undefined), '0.05')
   assert.equal(normalizeXbrlNumericValue('12.5', '-2', '-', undefined), '-0.125')
   assert.equal(normalizeXbrlNumericValue('—', '0', undefined, 'ixt:zero-dash'), '0')
+  assert.equal(normalizeXbrlNumericValue('no', '0', undefined, 'ixt:fixed-zero'), '0')
+  assert.throws(
+    () => normalizeXbrlNumericValue('no', '0', undefined, undefined),
+    /Unsupported XBRL numeric value/,
+  )
 })
 
 test('extracts the shortest consolidated period from a quarterly report', () => {

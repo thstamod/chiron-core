@@ -382,6 +382,45 @@ before expanding the historical dataset to many thousands of periodic reports.
 - An empty run does not download or parse any SEC document.
 - Results remain correct across database pagination boundaries.
 
+### Add audited corrections for incorrect SEC fiscal identities
+
+**Status:** Agreed, not implemented
+
+**Priority:** Next iteration after the historical validation batch exposes real examples
+
+#### Current behavior
+
+Chiron preserves `DocumentFiscalYearFocus` and `DocumentFiscalPeriodFocus` exactly as reported in
+the source filing. If two events from one company claim the same fiscal-year and fiscal-period
+identity, derived calculations exclude every event in that ambiguous identity and report the count
+instead of silently selecting or rewriting one. Current examples include Salesforce annual filings
+ending January 2025 and January 2026 that both identify themselves as fiscal year 2025, and Oracle
+quarterly filings ending August 2025 and August 2026 that both identify themselves as fiscal 2026
+Q1.
+
+#### Proposed behavior
+
+Add a separate append-only correction record containing the source identity, corrected effective
+identity, reviewer, reason, evidence, and correction timestamp. Derived calculations may use only a
+reviewed correction while the original SEC value remains unchanged and auditable. Before adopting a
+date-based automatic fallback, validate it against companies with non-calendar and 52/53-week fiscal
+years.
+
+#### What this improves
+
+- Allows honest year-over-year calculations when a filing contains incorrect fiscal metadata.
+- Keeps source facts separate from human corrections.
+- Prevents one ambiguous company from blocking calculations for the full dataset.
+- Creates reviewed examples that can guide a later deterministic reconciliation rule.
+
+#### Acceptance checks
+
+- An ambiguous identity is excluded when no reviewed correction exists.
+- A reviewed correction selects the intended effective fiscal identity without changing raw data.
+- Every correction records its reviewer, reason, evidence, and timestamp.
+- Recalculating from the same source and correction records produces the same fingerprint.
+- Non-calendar and 52/53-week companies are covered by validation examples.
+
 ### Query only changed inputs for financial calculations
 
 **Status:** Agreed, not implemented

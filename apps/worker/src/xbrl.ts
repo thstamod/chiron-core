@@ -148,7 +148,9 @@ export function normalizeXbrlNumericValue(
   }
 
   const normalizedFormat = format?.toLowerCase() ?? ''
+  const formatLocalName = normalizedFormat.split(':').at(-1)
   let displayedValue = normalizedInlineText(sourceText)
+  if (formatLocalName === 'fixed-zero') return '0'
   if (/^[\-—–]$/.test(displayedValue) && normalizedFormat.includes('zero')) return '0'
 
   const hasParenthesizedNegative = displayedValue.startsWith('(') && displayedValue.endsWith(')')

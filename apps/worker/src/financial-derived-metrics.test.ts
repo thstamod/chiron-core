@@ -8,6 +8,7 @@ import {
 } from './constants.js'
 import {
   calculateFinancialDerivedMetrics,
+  excludeAmbiguousFinancialPeriods,
   type FinancialPeriod,
   type SourceFinancialMetric,
 } from './financial-derived-metrics.js'
@@ -72,4 +73,28 @@ test('still calculates current net margin when the previous year is unavailable'
   assert.equal(result.metrics.length, 1)
   assert.equal(result.metrics[0]?.metricCode, FinancialDerivedMetricCode.netMarginPercent)
   assert.equal(result.warnings.length, 1)
+})
+
+test('excludes every event that shares an ambiguous company fiscal-period identity', () => {
+  const firstAmbiguousPeriod = financialPeriod('event-first', 2025, '100', '10')
+  const secondAmbiguousPeriod = financialPeriod('event-second', 2025, '110', '11')
+  const unambiguousPeriod = financialPeriod('event-unambiguous', 2026, '120', '12')
+
+  const result = excludeAmbiguousFinancialPeriods([
+    firstAmbiguousPeriod,
+    secondAmbiguousPeriod,
+    unambiguousPeriod,
+  ])
+
+  assert.deepEqual(
+    result.unambiguousPeriods.map((period) => period.earningsEventId),
+    ['event-unambiguous'],
+  )
+  assert.equal(result.excludedEventCount, 2)
+  assert.deepEqual(result.ambiguousPeriods, [{
+    companyId: 'company-1',
+    fiscalYear: 2025,
+    fiscalPeriod: XbrlFiscalPeriod.firstQuarter,
+    earningsEventIds: ['event-first', 'event-second'],
+  }])
 })

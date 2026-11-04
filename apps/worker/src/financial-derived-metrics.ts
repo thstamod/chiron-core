@@ -114,6 +114,14 @@ export interface FinancialDerivedMetricCalculationSummary {
   pendingEvents: number
   calculatedMetrics: number
   warnings: number
+  excludedAmbiguousEvents: number
+  ambiguousPeriodIdentities: number
+  ambiguousPeriods: Array<{
+    companyId: string
+    fiscalYear: number
+    fiscalPeriod: string
+    earningsEventIds: string[]
+  }>
   calculationVersion: string
 }
 
@@ -140,6 +148,70 @@ function extractionKey(sourceDocumentId: string, sourceContentSha256: string): s
 
 function comparablePeriodKey(companyId: string, fiscalYear: number, fiscalPeriod: string): string {
   return `${companyId}:${fiscalYear}:${fiscalPeriod}`
+}
+
+export function excludeAmbiguousFinancialPeriods(periods: FinancialPeriod[]): {
+  unambiguousPeriods: FinancialPeriod[]
+  excludedEventCount: number
+  ambiguousPeriods: Array<{
+    companyId: string
+    fiscalYear: number
+    fiscalPeriod: string
+    earningsEventIds: string[]
+  }>
+} {
+  const eventIdsByIdentity = new Map<string, Set<string>>()
+  for (const period of periods) {
+    const identity = comparablePeriodKey(
+      period.companyId,
+      period.fiscalYear,
+      period.fiscalPeriod,
+    )
+    const eventIds = eventIdsByIdentity.get(identity) ?? new Set<string>()
+    eventIds.add(period.earningsEventId)
+    eventIdsByIdentity.set(identity, eventIds)
+  }
+
+  const ambiguousPeriods = [...eventIdsByIdentity.entries()]
+    .filter(([, eventIds]) => eventIds.size > 1)
+    .map(([identity, eventIds]) => {
+      const matchingPeriod = periods.find((period) => comparablePeriodKey(
+        period.companyId,
+        period.fiscalYear,
+        period.fiscalPeriod,
+      ) === identity)!
+      return {
+        companyId: matchingPeriod.companyId,
+        fiscalYear: matchingPeriod.fiscalYear,
+        fiscalPeriod: matchingPeriod.fiscalPeriod,
+        earningsEventIds: [...eventIds].sort(),
+      }
+    })
+    .sort((left, right) => comparablePeriodKey(
+      left.companyId,
+      left.fiscalYear,
+      left.fiscalPeriod,
+    ).localeCompare(comparablePeriodKey(
+      right.companyId,
+      right.fiscalYear,
+      right.fiscalPeriod,
+    )))
+  const ambiguousIdentities = new Set(
+    ambiguousPeriods.map((period) => comparablePeriodKey(
+      period.companyId,
+      period.fiscalYear,
+      period.fiscalPeriod,
+    )),
+  )
+  const unambiguousPeriods = periods.filter((period) => !ambiguousIdentities.has(
+    comparablePeriodKey(period.companyId, period.fiscalYear, period.fiscalPeriod),
+  ))
+
+  return {
+    unambiguousPeriods,
+    excludedEventCount: periods.length - unambiguousPeriods.length,
+    ambiguousPeriods,
+  }
 }
 
 function completionKey(earningsEventId: string, inputSha256: string): string {
@@ -566,23 +638,21 @@ export async function calculateAndStoreFinancialDerivedMetrics(
     loadFinancialPeriods(client),
     loadCompletedCalculationKeys(client),
   ])
+  const {
+    unambiguousPeriods,
+    excludedEventCount,
+    ambiguousPeriods,
+  } = excludeAmbiguousFinancialPeriods(periods)
   const periodsByComparableIdentity = new Map<string, FinancialPeriod>()
-  for (const period of periods) {
+  for (const period of unambiguousPeriods) {
     const identity = comparablePeriodKey(
       period.companyId,
       period.fiscalYear,
       period.fiscalPeriod,
     )
-    const existingPeriod = periodsByComparableIdentity.get(identity)
-    if (existingPeriod && existingPeriod.earningsEventId !== period.earningsEventId) {
-      throw new Error(
-        `Events ${existingPeriod.earningsEventId} and ${period.earningsEventId} `
-        + `share financial period ${period.fiscalYear} ${period.fiscalPeriod}`,
-      )
-    }
     periodsByComparableIdentity.set(identity, period)
   }
-  const calculations = periods.map((currentPeriod) => {
+  const calculations = unambiguousPeriods.map((currentPeriod) => {
     const previousYearPeriod = periodsByComparableIdentity.get(
       comparablePeriodKey(
         currentPeriod.companyId,
@@ -612,6 +682,9 @@ export async function calculateAndStoreFinancialDerivedMetrics(
     pendingEvents: pendingCalculations.length,
     calculatedMetrics,
     warnings: warningCount,
+    excludedAmbiguousEvents: excludedEventCount,
+    ambiguousPeriodIdentities: ambiguousPeriods.length,
+    ambiguousPeriods,
     calculationVersion: financialDerivedMetricCalculationVersion,
   }
 }

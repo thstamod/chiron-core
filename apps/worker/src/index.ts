@@ -295,6 +295,18 @@ async function calculateFinancialDerivedMetrics(
     `Financial calculations complete: ${summary.pendingEvents} events processed, `
     + `${summary.calculatedMetrics} metrics calculated, and ${summary.warnings} warnings`,
   )
+  if (summary.excludedAmbiguousEvents > 0) {
+    console.warn(
+      `Excluded ${summary.excludedAmbiguousEvents} events across `
+      + `${summary.ambiguousPeriodIdentities} ambiguous financial period identities`,
+    )
+    for (const period of summary.ambiguousPeriods) {
+      console.warn(
+        `Ambiguous period ${period.companyId} ${period.fiscalYear} ${period.fiscalPeriod}: `
+        + period.earningsEventIds.join(', '),
+      )
+    }
+  }
 
   return { ...summary }
 }
