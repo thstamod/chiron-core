@@ -10,6 +10,7 @@ import {
 import { calculateContentSha256 } from './content-hash.js'
 import {
   QualitativeRiskAbsenceMeaning,
+  QualitativeSourceAvailabilityMode,
   QualitativeSourceScope,
   RuleVersion,
 } from './constants.js'
@@ -430,6 +431,30 @@ test('rejects a source first seen after the analysis cutoff', () => {
       [{ ...currentDocument, firstSeenAt: '2026-10-20T21:00:01.000Z' }],
     ),
     /first seen after the analysis cutoff/,
+  )
+})
+
+test('historical reconstruction records late ingestion without treating it as future publication', () => {
+  const historicalDocument = {
+    ...currentDocument,
+    firstSeenAt: '2026-11-04T20:00:00.000Z',
+  }
+  const prepared = prepareQualitativeExtractionInput(
+    'event-1',
+    '2026-10-20T21:00:00.000Z',
+    [historicalDocument],
+    {
+      sourceAvailabilityMode: QualitativeSourceAvailabilityMode.historicalReconstruction,
+    },
+  )
+
+  assert.equal(
+    prepared.manifest.sourceAvailabilityRuleVersion,
+    RuleVersion.historicalSourceAvailability,
+  )
+  assert.equal(
+    prepared.manifest.documents[0]?.firstSeenAt,
+    '2026-11-04T20:00:00.000Z',
   )
 })
 

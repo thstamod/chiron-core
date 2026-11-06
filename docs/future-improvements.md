@@ -6,6 +6,19 @@ implemented and tested.
 
 ## Next iteration
 
+### Audit predictions before adding market-risk context
+
+**Status:** Proposed research plan, not implemented
+
+Audit frozen earnings predictions against actual stock, market, and sector returns at the existing
+1-, 5-, and 20-trading-day horizons before changing the scoring model. Then, if justified, test a
+separate point-in-time indicator using market trend, sector trend, recent volatility, and scheduled
+major events. Preserve the existing score and forward history, and require time-ordered independent
+validation before adoption.
+
+See [Prediction audit and market-risk research plan](prediction-audit-and-market-risk.md) for the
+deliverables, data boundaries, limitations, and acceptance checks.
+
 ### Use a database-aware SEC cutoff
 
 **Status:** Agreed, not implemented

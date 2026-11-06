@@ -105,6 +105,9 @@ export const RuleVersion = {
   financialMetricExtraction: 'sec-xbrl-financial-metrics-v1',
   financialDerivedMetrics: 'financial-derived-metrics-v1',
   qualitativeInputSelection: 'earnings-release-input-v1',
+  historicalQualitativeInputSelection: 'historical-earnings-release-input-v1',
+  forwardSourceAvailability: 'published-and-observed-by-chiron-v1',
+  historicalSourceAvailability: 'published-by-simulated-cutoff-v1',
   qualitativeEvidencePassages: 'evidence-passages-v1',
   qualitativeSourceCoverage: 'earnings-release-source-coverage-v1',
   referencePriceSession: 'next-available-us-equities-open-v1',
@@ -115,6 +118,26 @@ export const RuleVersion = {
 
 export const PredictionSnapshotVersion = {
   initial: 'prediction-snapshot-v1',
+} as const
+
+export const HistoricalReconstructionPlanVersion = {
+  initial: 'historical-reconstruction-plan-v1',
+} as const
+
+export const HistoricalReconstructionMode = {
+  retrospective: 'retrospective',
+} as const
+
+export const QualitativeSourceAvailabilityMode = {
+  historicalReconstruction: 'historical_reconstruction',
+} as const
+
+export type QualitativeSourceAvailabilityModeValue =
+  typeof QualitativeSourceAvailabilityMode[keyof typeof QualitativeSourceAvailabilityMode]
+
+export const QualitativeExtractionPurpose = {
+  forwardPrediction: 'forward_prediction',
+  historicalReconstruction: 'historical_reconstruction',
 } as const
 
 export const EvaluationSnapshotVersion = {
@@ -360,6 +383,10 @@ export const WorkerCommand = {
   createPrediction: 'create-prediction',
   previewEvaluation: 'preview-evaluation',
   createEvaluation: 'create-evaluation',
+  previewHistoricalReconstructionPlan: 'preview-historical-reconstruction-plan',
+  createHistoricalReconstructionPlan: 'create-historical-reconstruction-plan',
+  previewHistoricalQualitativeExtraction: 'preview-historical-qualitative',
+  extractHistoricalQualitative: 'extract-historical-qualitative',
 } as const
 
 export const WorkerCommandFlag = {
@@ -369,6 +396,8 @@ export const WorkerCommandFlag = {
   reviewNotes: '--notes=',
   correctedOutputFile: '--corrected-output-file=',
   evaluationHorizon: '--horizon=',
+  simulatedCutoff: '--cutoff=',
+  experimentVersion: '--experiment-version=',
 } as const
 
 export const JobName = {
@@ -414,6 +443,7 @@ export const DatabaseTable = {
   marketSessions: 'market_sessions',
   predictions: 'predictions',
   evaluations: 'evaluations',
+  historicalReconstructionPlans: 'historical_reconstruction_plans',
   jobRuns: 'job_runs',
 } as const
 

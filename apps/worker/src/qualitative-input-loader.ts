@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   DatabaseTable,
+  QualitativeSourceAvailabilityMode,
   SecDocumentType,
   StorageConfig,
+  type QualitativeSourceAvailabilityModeValue,
 } from './constants.js'
 import { calculateContentSha256 } from './content-hash.js'
 import {
@@ -44,6 +46,10 @@ export interface SelectedQualitativeDocument {
   row: QualitativeDocumentCandidateRow
   role: QualitativeDocumentRole
   textVersion: QualitativeDocumentTextVersionRow
+}
+
+export interface QualitativeInputLoadOptions {
+  sourceAvailabilityMode: QualitativeSourceAvailabilityModeValue
 }
 
 function singleTextVersion(
@@ -141,6 +147,7 @@ export async function loadPreparedQualitativeExtractionInput(
   client: SupabaseClient,
   earningsEventId: string,
   cutoffAt: string,
+  options?: QualitativeInputLoadOptions,
 ): Promise<PreparedQualitativeExtractionInput> {
   const { data: eventData, error: eventError } = await client
     .from(DatabaseTable.earningsEvents)
@@ -155,7 +162,7 @@ export async function loadPreparedQualitativeExtractionInput(
   const eventIds = [event.id, event.previous_event_id].filter(
     (eventId): eventId is string => Boolean(eventId),
   )
-  const { data: documentData, error: documentError } = await client
+  let documentQuery = client
     .from(DatabaseTable.documents)
     .select(`
       id,
@@ -174,10 +181,14 @@ export async function loadPreparedQualitativeExtractionInput(
     .in('earnings_event_id', eventIds)
     .eq('document_type', SecDocumentType.earningsExhibit)
     .lte('published_at', cutoffAt)
-    .lte('first_seen_at', cutoffAt)
     .eq('document_text_versions.extraction_version', documentTextExtractionVersion)
     .order('published_at')
     .order('id')
+  if (options?.sourceAvailabilityMode
+    !== QualitativeSourceAvailabilityMode.historicalReconstruction) {
+    documentQuery = documentQuery.lte('first_seen_at', cutoffAt)
+  }
+  const { data: documentData, error: documentError } = await documentQuery
   if (documentError) {
     throw new Error(`Could not load qualitative source documents: ${documentError.message}`)
   }
@@ -192,5 +203,5 @@ export async function loadPreparedQualitativeExtractionInput(
     sourceDocuments.push(await downloadReadableText(client, selectedDocument))
   }
 
-  return prepareQualitativeExtractionInput(earningsEventId, cutoffAt, sourceDocuments)
+  return prepareQualitativeExtractionInput(earningsEventId, cutoffAt, sourceDocuments, options)
 }

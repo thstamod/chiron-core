@@ -41,6 +41,12 @@ export async function previewQualitativeExtraction(
     earningsEventId,
     analysisCutoffAt,
   )
+  return buildQualitativeExtractionPreview(preparedInput)
+}
+
+export function buildQualitativeExtractionPreview(
+  preparedInput: PreparedQualitativeExtractionInput,
+): QualitativeExtractionPreview {
   const request = buildBaselineQualitativeProviderRequest(preparedInput)
   const promptCharacterCount = request.prompt.instructions.length
     + request.prompt.documentInput.length
@@ -53,7 +59,7 @@ export async function previewQualitativeExtraction(
   )
 
   return {
-    earningsEventId,
+    earningsEventId: preparedInput.manifest.earningsEventId,
     analysisCutoffAt: request.metadata.analysisCutoffAt,
     promptVersion: request.prompt.version,
     schemaVersion: request.metadata.schemaVersion,

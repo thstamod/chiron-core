@@ -140,6 +140,35 @@ The confirmation flag is required. This command makes exactly one provider reque
 schema and exact-evidence validation, and inserts one permanent `extraction_runs` record. It is not
 part of the scheduled workflow and has no automatic retry.
 
+Historical research starts by freezing a separate source plan before any paid extraction:
+
+```bash
+pnpm worker:preview-historical-reconstruction-plan <earnings-event-id> \
+  --cutoff=<historical-timestamp> --experiment-version=<experiment-version>
+pnpm worker:create-historical-reconstruction-plan <earnings-event-id> \
+  --cutoff=<historical-timestamp> --experiment-version=<experiment-version>
+```
+
+The historical cutoff is when the simulated analysis would have occurred. The plan admits only
+sources published by that time but preserves the real `first_seen_at` values, which can be later
+when documents were backfilled. This is explicitly retrospective and never creates a row in the
+forward `predictions` table. These commands do not call an LLM or load prices and outcomes.
+
+After a historical plan is frozen, inspect its exact paid-request size without calling the LLM:
+
+```bash
+pnpm worker:preview-historical-qualitative <historical-plan-id>
+```
+
+Only after reviewing that preview can the explicitly paid historical extraction be run:
+
+```bash
+pnpm worker:extract-historical-qualitative <historical-plan-id> --execute-paid-request
+```
+
+The database rejects the historical extraction unless its event, cutoff, source manifest, input
+fingerprint, selection version, and availability rule exactly match the referenced immutable plan.
+
 After a completed extraction is accepted or corrected through the manual review command, create one
 immutable prediction for the event:
 

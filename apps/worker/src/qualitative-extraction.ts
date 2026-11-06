@@ -8,9 +8,11 @@ import { canonicalJson } from './canonical-json.js'
 import { calculateContentSha256 } from './content-hash.js'
 import {
   QualitativeRiskAbsenceMeaning,
+  QualitativeSourceAvailabilityMode,
   QualitativeSourceScope,
   RuleVersion,
   type QualitativeRiskAbsenceMeaningValue,
+  type QualitativeSourceAvailabilityModeValue,
   type QualitativeSourceScopeValue,
 } from './constants.js'
 import {
@@ -51,6 +53,7 @@ export interface QualitativeExtractionInputManifest {
   schemaVersion: string
   inputSelectionVersion: string
   evidencePassageVersion: string
+  sourceAvailabilityRuleVersion?: string
   sourceCoverage: {
     version: string
     includedScopes: QualitativeSourceScopeValue[]
@@ -58,6 +61,10 @@ export interface QualitativeExtractionInputManifest {
     riskAbsenceMeaning: QualitativeRiskAbsenceMeaningValue
   }
   documents: QualitativeInputDocumentManifest[]
+}
+
+export interface QualitativeInputPreparationOptions {
+  sourceAvailabilityMode: QualitativeSourceAvailabilityModeValue
 }
 
 export interface PreparedQualitativeExtractionInput {
@@ -113,6 +120,7 @@ export function prepareQualitativeExtractionInput(
   earningsEventId: string,
   cutoffAt: string,
   sourceDocuments: QualitativeSourceDocument[],
+  options?: QualitativeInputPreparationOptions,
 ): PreparedQualitativeExtractionInput {
   if (!earningsEventId.trim()) throw new Error('Qualitative extraction requires an event ID')
   if (sourceDocuments.length === 0) {
@@ -120,6 +128,8 @@ export function prepareQualitativeExtractionInput(
   }
 
   const cutoffTimestamp = validTimestamp(cutoffAt, 'Qualitative extraction cutoff')
+  const isHistoricalReconstruction = options?.sourceAvailabilityMode
+    === QualitativeSourceAvailabilityMode.historicalReconstruction
   const documentIds = new Set<string>()
   let currentDocumentCount = 0
   let previousDocumentCount = 0
@@ -152,7 +162,7 @@ export function prepareQualitativeExtractionInput(
     if (documentPublishedTimestamp > cutoffTimestamp) {
       throw new Error(`Document ${document.documentId} was published after the analysis cutoff`)
     }
-    if (documentFirstSeenTimestamp > cutoffTimestamp) {
+    if (!isHistoricalReconstruction && documentFirstSeenTimestamp > cutoffTimestamp) {
       throw new Error(`Document ${document.documentId} was first seen after the analysis cutoff`)
     }
     if (documentFirstSeenTimestamp < documentPublishedTimestamp) {
@@ -179,8 +189,13 @@ export function prepareQualitativeExtractionInput(
     earningsEventId,
     cutoffAt: new Date(cutoffTimestamp).toISOString(),
     schemaVersion: qualitativeExtractionSchemaVersion,
-    inputSelectionVersion: RuleVersion.qualitativeInputSelection,
+    inputSelectionVersion: isHistoricalReconstruction
+      ? RuleVersion.historicalQualitativeInputSelection
+      : RuleVersion.qualitativeInputSelection,
     evidencePassageVersion: qualitativeEvidencePassageVersion,
+    ...(isHistoricalReconstruction
+      ? { sourceAvailabilityRuleVersion: RuleVersion.historicalSourceAvailability }
+      : {}),
     sourceCoverage: {
       version: RuleVersion.qualitativeSourceCoverage,
       includedScopes: [

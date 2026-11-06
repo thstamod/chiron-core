@@ -19,7 +19,8 @@ companies
         ├── financial_derived_metrics
         ├── financial_derived_metric_calculations
         ├── extraction_runs ── extraction_reviews
-        └── predictions ── evaluations
+        ├── predictions ── evaluations
+        └── historical_reconstruction_plans
 
 job_runs records whether background jobs succeeded or failed.
 ```
@@ -293,6 +294,11 @@ Important fields:
 - `output` and `output_sha256`: the structured JSON and its fingerprint when the provider completed.
 - `validation_status`, `located_evidence`, and `validation_errors`: whether every claim passed
   validation, where each exact quote appeared, and any validation problem that requires review.
+- `extraction_purpose`: separates genuine forward extraction from historical reconstruction.
+- `historical_reconstruction_plan_id`: the immutable historical plan that authorized a
+  retrospective extraction; it must remain empty for forward work.
+- `source_availability_rule_version`: whether documents required both publication and real
+  observation by Chiron, or used the explicitly retrospective publication-time rule.
 
 ### `extraction_reviews`
 
@@ -329,6 +335,29 @@ notes. Corrected reviews additionally require a JSON file containing the complet
 pnpm worker:review-qualitative <extraction-run-id> --decision=accepted \
   --reviewer-label=owner-manual-review --notes="Reviewed every claim and its evidence."
 ```
+
+### `historical_reconstruction_plans`
+
+Append-only plans that freeze the allowed documents for one historical replay before a paid LLM
+request or outcome calculation occurs. These rows are deliberately separate from `predictions`, so
+a reconstruction created after an outcome is known can never enter the genuine forward record.
+
+Important fields:
+
+- `simulated_cutoff_at`: the historical information deadline being reconstructed.
+- `recorded_at`: the real database time when the plan was created, which is normally much later.
+- `reconstruction_mode`: explicitly labels the row as retrospective research.
+- `experiment_version`: identifies the predeclared pilot or comparison containing the event.
+- `source_availability_rule_version`: allows only documents published by the simulated cutoff while
+  retaining their honest, possibly later, `first_seen_at` values.
+- `source_manifest`: the exact source documents, roles, publication times, real ingestion times,
+  extraction versions, and fingerprints allowed for the reconstruction.
+- `source_manifest_sha256` and `qualitative_input_sha256`: fingerprints of the complete manifest
+  and prepared qualitative input.
+
+The database requires exactly one current earnings-release document and rejects any source
+published after the simulated cutoff. Rows cannot be updated or deleted. A historical plan does not
+contain prices, returns, evaluation results, or a stock-performance prediction.
 
 ### `predictions`
 

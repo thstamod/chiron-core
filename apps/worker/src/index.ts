@@ -78,6 +78,14 @@ import {
   formatWatchlistValidationReport,
   validateWatchlist,
 } from './watchlist-validation.js'
+import {
+  createAndStoreHistoricalReconstructionPlan,
+  previewHistoricalReconstructionPlan,
+} from './historical-reconstruction-plan.js'
+import {
+  extractAndStoreHistoricalQualitativeAnalysis,
+  previewHistoricalQualitativeExtraction,
+} from './historical-qualitative.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -539,6 +547,80 @@ async function main(): Promise<void> {
         WorkerCommand.createPrediction,
       )
       const summary = await createAndStorePrediction(client, earningsEventId)
+      console.log(JSON.stringify(summary, null, 2))
+      break
+    }
+    case WorkerCommand.previewHistoricalReconstructionPlan:
+    case WorkerCommand.createHistoricalReconstructionPlan: {
+      const optionPrefixes = [
+        WorkerCommandFlag.simulatedCutoff,
+        WorkerCommandFlag.experimentVersion,
+      ]
+      rejectUnknownCommandOptions(commandArguments, optionPrefixes)
+      const earningsEventId = requireSinglePositionalArgument(
+        commandArguments,
+        command,
+      )
+      const simulatedCutoffAt = requireCommandOption(
+        commandArguments,
+        WorkerCommandFlag.simulatedCutoff,
+      )
+      const experimentVersion = requireCommandOption(
+        commandArguments,
+        WorkerCommandFlag.experimentVersion,
+      )
+      const result = command === WorkerCommand.previewHistoricalReconstructionPlan
+        ? await previewHistoricalReconstructionPlan(
+          client,
+          earningsEventId,
+          simulatedCutoffAt,
+          experimentVersion,
+        )
+        : await createAndStoreHistoricalReconstructionPlan(
+          client,
+          earningsEventId,
+          simulatedCutoffAt,
+          experimentVersion,
+        )
+      console.log(JSON.stringify(result, null, 2))
+      break
+    }
+    case WorkerCommand.previewHistoricalQualitativeExtraction: {
+      rejectUnknownCommandOptions(commandArguments, [])
+      const historicalReconstructionPlanId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.previewHistoricalQualitativeExtraction,
+      )
+      const preview = await previewHistoricalQualitativeExtraction(
+        client,
+        historicalReconstructionPlanId,
+      )
+      console.log(JSON.stringify(preview, null, 2))
+      break
+    }
+    case WorkerCommand.extractHistoricalQualitative: {
+      rejectUnknownCommandOptions(commandArguments, [WorkerCommandFlag.executePaidRequest])
+      const historicalReconstructionPlanId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.extractHistoricalQualitative,
+      )
+      if (!commandArguments.includes(WorkerCommandFlag.executePaidRequest)) {
+        throw new Error(
+          `extract-historical-qualitative requires ${WorkerCommandFlag.executePaidRequest}`,
+        )
+      }
+      const provider = createOpenAIQualitativeExtractionProvider(
+        loadOpenAILanguageModelConfig(),
+      )
+      const summary = await runTrackedJob(
+        client,
+        JobName.qualitativeExtraction,
+        () => extractAndStoreHistoricalQualitativeAnalysis(
+          client,
+          provider,
+          historicalReconstructionPlanId,
+        ),
+      )
       console.log(JSON.stringify(summary, null, 2))
       break
     }

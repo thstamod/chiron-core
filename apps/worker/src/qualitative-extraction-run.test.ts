@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { QualitativeExtraction } from '@chiron/shared'
 import {
+  QualitativeExtractionPurpose,
   QualitativeProviderStatus,
+  QualitativeSourceAvailabilityMode,
   QualitativeValidationStatus,
+  RuleVersion,
 } from './constants.js'
 import { calculateContentSha256 } from './content-hash.js'
 import {
@@ -29,6 +32,14 @@ const preparedInput = prepareQualitativeExtractionInput(
   'event-1',
   '2026-10-20T21:00:00.000Z',
   [currentDocument],
+)
+const historicalPreparedInput = prepareQualitativeExtractionInput(
+  'event-1',
+  '2026-10-20T21:00:00.000Z',
+  [currentDocument],
+  {
+    sourceAvailabilityMode: QualitativeSourceAvailabilityMode.historicalReconstruction,
+  },
 )
 const tokenUsage = {
   inputTokens: 1_000,
@@ -138,4 +149,29 @@ test('builds an unsuccessful record without fake output or validation', () => {
   assert.equal(record.validation_status, null)
   assert.equal(record.failure_reason, 'Temporary connection failure')
   assert.equal(record.retryable, true)
+})
+
+test('links a historical extraction record to its immutable source plan', () => {
+  const record = buildQualitativeExtractionRunRecord(
+    historicalPreparedInput,
+    'baseline-v6',
+    completedResult(extraction('current-p0001')),
+    {
+      historicalReconstructionPlanId: '33333333-3333-4333-8333-333333333333',
+      sourceAvailabilityRuleVersion: RuleVersion.historicalSourceAvailability,
+    },
+  )
+
+  assert.equal(
+    record.extraction_purpose,
+    QualitativeExtractionPurpose.historicalReconstruction,
+  )
+  assert.equal(
+    record.historical_reconstruction_plan_id,
+    '33333333-3333-4333-8333-333333333333',
+  )
+  assert.equal(
+    record.source_availability_rule_version,
+    RuleVersion.historicalSourceAvailability,
+  )
 })

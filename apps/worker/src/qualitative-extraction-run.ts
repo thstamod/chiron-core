@@ -3,6 +3,7 @@ import { canonicalJson } from './canonical-json.js'
 import { calculateContentSha256 } from './content-hash.js'
 import {
   DatabaseTable,
+  QualitativeExtractionPurpose,
   QualitativeProviderStatus,
   QualitativeValidationStatus,
 } from './constants.js'
@@ -41,6 +42,14 @@ export interface QualitativeExtractionRunRecord {
   validation_status: string | null
   located_evidence: unknown[] | null
   validation_errors: string[] | null
+  extraction_purpose?: string
+  historical_reconstruction_plan_id?: string
+  source_availability_rule_version?: string
+}
+
+export interface HistoricalQualitativeExtractionContext {
+  historicalReconstructionPlanId: string
+  sourceAvailabilityRuleVersion: string
 }
 
 export interface QualitativeExtractionRunSummary extends Record<string, unknown> {
@@ -62,6 +71,7 @@ export function buildQualitativeExtractionRunRecord(
   preparedInput: PreparedQualitativeExtractionInput,
   promptVersion: string,
   providerResult: QualitativeProviderResult,
+  historicalContext?: HistoricalQualitativeExtractionContext,
 ): QualitativeExtractionRunRecord {
   const sharedRecord = {
     earnings_event_id: preparedInput.manifest.earningsEventId,
@@ -80,6 +90,15 @@ export function buildQualitativeExtractionRunRecord(
     finished_at: providerResult.finishedAt,
     duration_milliseconds: providerResult.durationMilliseconds,
     token_usage: providerResult.tokenUsage,
+    ...(historicalContext
+      ? {
+        extraction_purpose: QualitativeExtractionPurpose.historicalReconstruction,
+        historical_reconstruction_plan_id:
+          historicalContext.historicalReconstructionPlanId,
+        source_availability_rule_version:
+          historicalContext.sourceAvailabilityRuleVersion,
+      }
+      : {}),
   }
 
   if (providerResult.status !== QualitativeProviderStatus.completed) {
@@ -125,7 +144,7 @@ export function buildQualitativeExtractionRunRecord(
   }
 }
 
-async function saveQualitativeExtractionRun(
+export async function saveQualitativeExtractionRun(
   client: SupabaseClient,
   record: QualitativeExtractionRunRecord,
 ): Promise<string> {
