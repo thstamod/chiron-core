@@ -6,6 +6,7 @@ import { canonicalJson } from './canonical-json.js'
 import { calculateContentSha256 } from './content-hash.js'
 import {
   DatabaseTable,
+  QualitativeExtractionPurpose,
   QualitativeProviderStatus,
   QualitativeReviewDecision,
   QualitativeReviewLimit,
@@ -13,6 +14,7 @@ import {
   QualitativeValidationStatus,
 } from './constants.js'
 import { validateAndLocateQualitativeEvidence } from './qualitative-extraction.js'
+import { loadPreparedHistoricalReconstructionInput } from './historical-reconstruction-plan.js'
 import { loadPreparedQualitativeExtractionInput } from './qualitative-input-loader.js'
 
 export type QualitativeReviewDecisionValue =
@@ -24,6 +26,8 @@ interface ExtractionRunForReview {
   cutoff_at: string
   schema_version: string
   input_sha256: string
+  extraction_purpose: string
+  historical_reconstruction_plan_id: string | null
   provider_status: string
   validation_status: string | null
   output: unknown | null
@@ -73,6 +77,7 @@ function extractionRunForReview(value: unknown): ExtractionRunForReview {
     'cutoff_at',
     'schema_version',
     'input_sha256',
+    'extraction_purpose',
     'provider_status',
   ] as const
   for (const field of requiredStringFields) {
@@ -86,6 +91,14 @@ function extractionRunForReview(value: unknown): ExtractionRunForReview {
   if (record.output_sha256 !== null && typeof record.output_sha256 !== 'string') {
     throw new Error('Qualitative extraction run has an invalid output_sha256')
   }
+  if (
+    record.historical_reconstruction_plan_id !== null
+    && typeof record.historical_reconstruction_plan_id !== 'string'
+  ) {
+    throw new Error(
+      'Qualitative extraction run has an invalid historical_reconstruction_plan_id',
+    )
+  }
   return record as unknown as ExtractionRunForReview
 }
 
@@ -97,12 +110,53 @@ async function loadExtractionRunForReview(
     .from(DatabaseTable.extractionRuns)
     .select(
       'id,earnings_event_id,cutoff_at,schema_version,input_sha256,'
+      + 'extraction_purpose,historical_reconstruction_plan_id,'
       + 'provider_status,validation_status,output,output_sha256',
     )
     .eq('id', extractionRunId)
     .single()
   if (error) throw new Error(`Could not load qualitative extraction run: ${error.message}`)
   return extractionRunForReview(data)
+}
+
+async function loadPreparedInputForReview(
+  client: SupabaseClient,
+  extractionRun: ExtractionRunForReview,
+) {
+  if (
+    extractionRun.extraction_purpose
+    === QualitativeExtractionPurpose.historicalReconstruction
+  ) {
+    const historicalPlanId = extractionRun.historical_reconstruction_plan_id
+    if (!historicalPlanId) {
+      throw new Error('Historical extraction run has no reconstruction plan')
+    }
+    const { plan, qualitativeInput } = await loadPreparedHistoricalReconstructionInput(
+      client,
+      historicalPlanId,
+    )
+    if (
+      plan.earnings_event_id !== extractionRun.earnings_event_id
+      || plan.simulated_cutoff_at !== extractionRun.cutoff_at
+    ) {
+      throw new Error('Historical extraction run does not match its reconstruction plan')
+    }
+    return qualitativeInput
+  }
+
+  if (extractionRun.extraction_purpose !== QualitativeExtractionPurpose.forwardPrediction) {
+    throw new Error(
+      `Unsupported qualitative extraction purpose: ${extractionRun.extraction_purpose}`,
+    )
+  }
+  if (extractionRun.historical_reconstruction_plan_id !== null) {
+    throw new Error('Forward extraction run unexpectedly references a historical plan')
+  }
+  return loadPreparedQualitativeExtractionInput(
+    client,
+    extractionRun.earnings_event_id,
+    extractionRun.cutoff_at,
+  )
 }
 
 function validateReviewInput(input: QualitativeExtractionReviewInput): void {
@@ -171,11 +225,7 @@ export async function recordQualitativeExtractionReview(
         `Corrected output currently supports ${qualitativeExtractionSchemaVersion} extraction runs`,
       )
     }
-    const preparedInput = await loadPreparedQualitativeExtractionInput(
-      client,
-      extractionRun.earnings_event_id,
-      extractionRun.cutoff_at,
-    )
+    const preparedInput = await loadPreparedInputForReview(client, extractionRun)
     if (preparedInput.inputSha256 !== extractionRun.input_sha256) {
       throw new Error('Corrected output source input does not match the extraction run fingerprint')
     }
