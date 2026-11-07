@@ -120,6 +120,14 @@ export const PredictionSnapshotVersion = {
   initial: 'prediction-snapshot-v1',
 } as const
 
+export const HistoricalPredictionSnapshotVersion = {
+  qualitativeOnly: 'historical-prediction-snapshot-v1',
+} as const
+
+export const HistoricalPredictionFeatureSet = {
+  qualitativeOnly: 'qualitative-only-v1',
+} as const
+
 export const HistoricalReconstructionPlanVersion = {
   initial: 'historical-reconstruction-plan-v1',
 } as const
@@ -387,6 +395,8 @@ export const WorkerCommand = {
   createHistoricalReconstructionPlan: 'create-historical-reconstruction-plan',
   previewHistoricalQualitativeExtraction: 'preview-historical-qualitative',
   extractHistoricalQualitative: 'extract-historical-qualitative',
+  previewHistoricalPrediction: 'preview-historical-prediction',
+  createHistoricalPrediction: 'create-historical-prediction',
 } as const
 
 export const WorkerCommandFlag = {
@@ -444,6 +454,7 @@ export const DatabaseTable = {
   predictions: 'predictions',
   evaluations: 'evaluations',
   historicalReconstructionPlans: 'historical_reconstruction_plans',
+  historicalPredictions: 'historical_predictions',
   jobRuns: 'job_runs',
 } as const
 

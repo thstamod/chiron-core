@@ -169,6 +169,20 @@ pnpm worker:extract-historical-qualitative <historical-plan-id> --execute-paid-r
 The database rejects the historical extraction unless its event, cutoff, source manifest, input
 fingerprint, selection version, and availability rule exactly match the referenced immutable plan.
 
+After the extraction is accepted or corrected, preview and freeze the qualitative-only historical
+prediction without reading prices or outcomes:
+
+```bash
+pnpm worker:preview-historical-prediction <historical-plan-id>
+pnpm worker:create-historical-prediction <historical-plan-id>
+```
+
+Historical predictions are stored separately from the genuine forward track record. The initial
+`qualitative-only-v1` feature set deliberately excludes financial metrics for every event so the
+pilot uses one consistent input policy. The snapshot records zero-point unavailable financial
+components, the reviewed effective qualitative output, score version, simulated cutoff, and frozen
+1-, 5-, and 20-session schedule. It contains no prices or outcomes.
+
 After a completed extraction is accepted or corrected through the manual review command, create one
 immutable prediction for the event:
 

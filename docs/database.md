@@ -20,7 +20,7 @@ companies
         ├── financial_derived_metric_calculations
         ├── extraction_runs ── extraction_reviews
         ├── predictions ── evaluations
-        └── historical_reconstruction_plans
+        └── historical_reconstruction_plans ── historical_predictions
 
 job_runs records whether background jobs succeeded or failed.
 ```
@@ -358,6 +358,33 @@ Important fields:
 The database requires exactly one current earnings-release document and rejects any source
 published after the simulated cutoff. Rows cannot be updated or deleted. A historical plan does not
 contain prices, returns, evaluation results, or a stock-performance prediction.
+
+### `historical_predictions`
+
+Append-only retrospective score snapshots linked to an immutable historical reconstruction plan.
+They remain separate from `predictions`, whose timestamps prove a genuine forward record.
+
+The first feature set is `qualitative-only-v1`. It applies the same policy to every event: reviewed
+qualitative information is scored, while financial metrics are explicitly excluded and their score
+components remain unavailable with zero points. This is a controlled baseline, not an assumption
+that missing financial information is good or bad.
+
+Important fields:
+
+- `simulated_cutoff_at` and `recorded_at`: the historical information deadline and honest later
+  database time.
+- `historical_reconstruction_plan_id`, `extraction_run_id`, and `extraction_review_id`: the exact
+  source plan, LLM result, and accepted or corrected human review.
+- `experiment_version`, `feature_set_version`, `prompt_version`, `model_name`, and `rule_version`:
+  the frozen research setup. The database rejects prompt or model changes within one experiment and
+  feature set.
+- `score`, `score_components`, `snapshot`, and `snapshot_sha256`: the complete reproducible result.
+- `planned_entry_session` and the 1-, 5-, and 20-session dates: the market schedule frozen before
+  the evaluation step reads outcomes.
+
+The database verifies that the extraction and usable review belong to the plan, that the simulated
+cutoffs match, and that the planned entry opens afterward. Rows cannot be updated or deleted. The
+table contains no prices, returns, or evaluation results.
 
 ### `predictions`
 

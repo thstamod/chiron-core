@@ -21,6 +21,8 @@
     "create:historical-reconstruction-plan": "tsx src/index.ts create-historical-reconstruction-plan",
     "preview:historical-qualitative": "tsx src/index.ts preview-historical-qualitative",
     "extract:historical-qualitative": "tsx src/index.ts extract-historical-qualitative",
+    "preview:historical-prediction": "tsx src/index.ts preview-historical-prediction",
+    "create:historical-prediction": "tsx src/index.ts create-historical-prediction",
     "preview:prediction": "tsx src/index.ts preview-prediction",
     "create:prediction": "tsx src/index.ts create-prediction",
     "preview:evaluation": "tsx src/index.ts preview-evaluation",

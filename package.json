@@ -26,6 +26,8 @@
     "worker:create-historical-reconstruction-plan": "pnpm --filter @chiron/worker create:historical-reconstruction-plan",
     "worker:preview-historical-qualitative": "pnpm --filter @chiron/worker preview:historical-qualitative",
     "worker:extract-historical-qualitative": "pnpm --filter @chiron/worker extract:historical-qualitative",
+    "worker:preview-historical-prediction": "pnpm --filter @chiron/worker preview:historical-prediction",
+    "worker:create-historical-prediction": "pnpm --filter @chiron/worker create:historical-prediction",
     "worker:preview-prediction": "pnpm --filter @chiron/worker preview:prediction",
     "worker:create-prediction": "pnpm --filter @chiron/worker create:prediction",
     "worker:preview-evaluation": "pnpm --filter @chiron/worker preview:evaluation",

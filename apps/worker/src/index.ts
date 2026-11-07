@@ -86,6 +86,10 @@ import {
   extractAndStoreHistoricalQualitativeAnalysis,
   previewHistoricalQualitativeExtraction,
 } from './historical-qualitative.js'
+import {
+  createAndStoreHistoricalPrediction,
+  previewHistoricalPrediction,
+} from './historical-predictions.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -622,6 +626,19 @@ async function main(): Promise<void> {
         ),
       )
       console.log(JSON.stringify(summary, null, 2))
+      break
+    }
+    case WorkerCommand.previewHistoricalPrediction:
+    case WorkerCommand.createHistoricalPrediction: {
+      rejectUnknownCommandOptions(commandArguments, [])
+      const historicalReconstructionPlanId = requireSinglePositionalArgument(
+        commandArguments,
+        command,
+      )
+      const result = command === WorkerCommand.previewHistoricalPrediction
+        ? await previewHistoricalPrediction(client, historicalReconstructionPlanId)
+        : await createAndStoreHistoricalPrediction(client, historicalReconstructionPlanId)
+      console.log(JSON.stringify(result, null, 2))
       break
     }
     case WorkerCommand.previewPrediction: {
