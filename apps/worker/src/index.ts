@@ -90,6 +90,11 @@ import {
   createAndStoreHistoricalPrediction,
   previewHistoricalPrediction,
 } from './historical-predictions.js'
+import { previewHistoricalEvaluation } from './historical-evaluations.js'
+import {
+  backfillHistoricalPrices,
+  previewHistoricalPriceBackfill,
+} from './historical-price-backfill.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -639,6 +644,49 @@ async function main(): Promise<void> {
         ? await previewHistoricalPrediction(client, historicalReconstructionPlanId)
         : await createAndStoreHistoricalPrediction(client, historicalReconstructionPlanId)
       console.log(JSON.stringify(result, null, 2))
+      break
+    }
+    case WorkerCommand.previewHistoricalEvaluation: {
+      rejectUnknownCommandOptions(commandArguments, [WorkerCommandFlag.evaluationHorizon])
+      const historicalPredictionId = requireSinglePositionalArgument(
+        commandArguments,
+        WorkerCommand.previewHistoricalEvaluation,
+      )
+      const horizonDays = parseEvaluationHorizon(
+        requireCommandOption(commandArguments, WorkerCommandFlag.evaluationHorizon),
+      )
+      const preview = await previewHistoricalEvaluation(
+        client,
+        historicalPredictionId,
+        horizonDays,
+      )
+      console.log(JSON.stringify(preview, null, 2))
+      break
+    }
+    case WorkerCommand.previewHistoricalPriceBackfill:
+    case WorkerCommand.backfillHistoricalPrices: {
+      rejectUnknownCommandOptions(commandArguments, [])
+      const historicalPredictionId = requireSinglePositionalArgument(
+        commandArguments,
+        command,
+      )
+      if (command === WorkerCommand.previewHistoricalPriceBackfill) {
+        const preview = await previewHistoricalPriceBackfill(client, historicalPredictionId)
+        console.log(JSON.stringify(preview, null, 2))
+        break
+      }
+      const tiingoPriceClient = new TiingoPriceClient(loadTiingoPriceConfig())
+      const summary = await runTrackedJob(
+        client,
+        JobName.historicalPriceBackfill,
+        () => backfillHistoricalPrices(client, historicalPredictionId, {
+          fetchDailyPrices: (request) => tiingoPriceClient.fetchDailyPrices(request),
+          saveChangedObservations: (observations) => (
+            saveChangedDailyPriceObservations(client, observations)
+          ),
+        }),
+      )
+      console.log(JSON.stringify(summary, null, 2))
       break
     }
     case WorkerCommand.previewPrediction: {

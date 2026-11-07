@@ -91,6 +91,17 @@ test('rejects invalid request dates before making a provider request', async () 
   assert.equal(requestCount, 0)
 })
 
+test('rejects a missing provider symbol instead of requesting an undefined ticker', () => {
+  assert.throws(
+    () => buildTiingoDailyPricesUrl({
+      providerSymbol: undefined as unknown as string,
+      startDate: '2026-08-05',
+      endDate: '2026-08-06',
+    }),
+    /Invalid Tiingo provider symbol/,
+  )
+})
+
 test('rejects a provider response with a missing required value', async () => {
   const { adjClose: _removedValue, ...incompletePrice } = validProviderResponse[0]!
   const fetchImplementation: typeof fetch = async () => Response.json([incompletePrice])

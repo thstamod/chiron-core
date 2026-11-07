@@ -183,6 +183,36 @@ pilot uses one consistent input policy. The snapshot records zero-point unavaila
 components, the reviewed effective qualitative output, score version, simulated cutoff, and frozen
 1-, 5-, and 20-session schedule. It contains no prices or outcomes.
 
+After the historical prediction has been frozen, preview its reconstructed outcome without writing
+to the database:
+
+```bash
+pnpm worker:preview-historical-evaluation <historical-prediction-id> --horizon=1
+```
+
+The horizon must be `1`, `5`, or `20`. This command uses the frozen sessions but selects price
+observations and benchmark mappings visible at preview time. It labels the result retrospective and
+preserves their real collection and creation timestamps; it does not pretend Chiron observed them
+at the simulated cutoff. A missing price or an exit session that has not closed produces
+`not_ready`. This first step is read-only. Historical evaluation storage is added only after these
+previews have been reviewed.
+
+If the preview reports a missing historical price, inspect the exact bounded provider requests
+before writing anything:
+
+```bash
+pnpm worker:preview-historical-price-backfill <historical-prediction-id>
+pnpm worker:backfill-historical-prices <historical-prediction-id>
+```
+
+The preview considers only the entry, 1-, 5-, and 20-session dates already frozen in the historical
+prediction. It skips sessions that have not closed and requests no prices. The manual backfill asks
+Tiingo for the smallest date range covering missing closed sessions, validates that every required
+date was returned, and stores observations through the existing append-only price path. It does not
+change the historical prediction or run automatically. Tiingo rejects ranges whose start and end
+are the same date, so one missing date uses the following calendar day as a harmless request
+boundary. If that would be a future date, it uses the preceding day instead.
+
 After a completed extraction is accepted or corrected through the manual review command, create one
 immutable prediction for the event:
 

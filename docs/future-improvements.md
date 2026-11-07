@@ -1096,6 +1096,84 @@ or external news. The immutable input manifest records those exclusions. No extr
 - An empty risk list never improves the score.
 - Reprocessing with broader coverage creates a new versioned result and preserves the earlier one.
 
+## Major milestone after baseline evaluation
+
+### Add frozen pre-prediction market context as a separate signal
+
+**Status:** Major future improvement; agreed, not implemented
+
+**Priority:** After the earnings-only baseline has been evaluated; before market context can affect
+live or commercial scoring
+
+#### Why this remains separate from the baseline
+
+The earnings-only baseline must first show what the current financial and qualitative signals can
+do on their own. Giving the extraction LLM unrestricted internet access would mix SEC evidence with
+changing search results, make predictions difficult to reproduce, and create an avoidable path for
+future information to enter historical experiments.
+
+The future feature should therefore be a separate, versioned context collector. It may examine
+company-specific news, sector developments, macroeconomic conditions, regulatory actions,
+geopolitical events, and known elections or policy announcements that were public before the
+prediction cutoff. The existing SEC extraction remains unchanged and continues to use only its
+frozen filing documents.
+
+#### Proposed behavior
+
+1. Query a documented allowlist of reliable sources through a dedicated server-side collector.
+   Prefer first-party company, regulator, government, and exchange sources before licensed
+   third-party news.
+2. Freeze every selected result before an LLM sees it. Preserve its URL, publisher, publication
+   time, actual retrieval time, exact supporting excerpt or permitted content snapshot, content
+   fingerprint, query, provider, and collector version.
+3. Reject sources published after the prediction cutoff. Treat missing or uncertain timestamps as
+   unavailable rather than silently assuming that they were known.
+4. Let a context extractor read only the frozen results. Do not give the LLM autonomous or
+   unrestricted web search, database access, prices, or later outcomes.
+5. Return structured, evidence-linked context such as company developments, sector pressure,
+   macroeconomic risk, geopolitical risk, regulatory risk, and scheduled-event uncertainty. An
+   event's existence does not automatically make it positive or negative.
+6. Store an immutable context manifest and fingerprint with the prediction. Post-prediction news
+   may annotate the later evaluation, but it must never change the original inputs or score.
+7. Introduce a new feature and scoring version instead of changing the earnings-only baseline in
+   place. Compare earnings-only, context-only, and combined variants on the same eligible events.
+8. Keep the generic collection interfaces, schemas, timestamp rules, and audit trail suitable for
+   the public core. Licensed datasets, proprietary source selection, and commercially developed
+   weights may remain private without weakening the public baseline.
+
+#### Historical-research boundary
+
+Current web results cannot reliably reconstruct what a search returned on an earlier date. A
+historical context experiment requires point-in-time archives or datasets with trustworthy
+publication timestamps and must be labelled as reconstructed. Later articles, summaries that
+reveal the price reaction, and outcome-derived RAG examples are prohibited. This restriction is in
+addition to the historical LLM information shield; it does not replace it.
+
+#### Validation before adoption
+
+- Finish and evaluate the earnings-only baseline first.
+- Validate source licensing, timestamp reliability, duplication handling, collection cost, and
+  failure behavior.
+- Manually review a representative context sample and require exact evidence for every accepted
+  claim.
+- Freeze queries, source rules, extraction schema, scoring rules, and test periods before examining
+  outcomes.
+- Measure whether context adds value beyond financial data, qualitative extraction, price momentum,
+  immediate market reaction, market trend, and sector trend.
+- Keep missing context visible; it must never become a positive signal.
+
+#### Acceptance checks
+
+- The exact context visible at prediction time can be reproduced from its frozen manifest.
+- Every accepted claim links to timestamped supporting evidence.
+- Disabling the context module leaves the existing earnings-only prediction unchanged.
+- A source or event first available after the cutoff cannot affect the prediction.
+- Post-prediction news changes only evaluation annotations, never immutable prediction data.
+- The combined signal is not adopted until a separately versioned comparison shows incremental
+  value on untouched data and then in forward observation.
+
+## Additional nice-to-have improvements
+
 ### Record material company news as evaluation context
 
 **Status:** Agreed, not implemented
@@ -1124,8 +1202,8 @@ SEC `8-K`.
 5. Separate events published before the prediction cutoff from events published afterward.
 6. Allow later events to annotate an evaluation result, but never update the original prediction,
    its inputs, or its score.
-7. Consider using pre-prediction news as a versioned model input only after the earnings-only
-   baseline has been validated.
+7. Route any proposed pre-prediction news input through the separate frozen market-context
+   improvement above; do not add it directly to this evaluation-annotation feature.
 8. Avoid storing or processing third-party article text until its licensing, duplication, and
    timestamp reliability have been evaluated.
 

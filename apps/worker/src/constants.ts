@@ -114,6 +114,7 @@ export const RuleVersion = {
   transparentEarningsScore: 'transparent-earnings-score-v1',
   evaluationSessionPlan: 'entry-inclusive-trading-horizons-v1',
   evaluationMethodology: 'adjusted-open-to-adjusted-close-v1',
+  historicalEvaluationReconstruction: 'retrospective-price-and-benchmark-reconstruction-v1',
 } as const
 
 export const PredictionSnapshotVersion = {
@@ -397,6 +398,9 @@ export const WorkerCommand = {
   extractHistoricalQualitative: 'extract-historical-qualitative',
   previewHistoricalPrediction: 'preview-historical-prediction',
   createHistoricalPrediction: 'create-historical-prediction',
+  previewHistoricalEvaluation: 'preview-historical-evaluation',
+  previewHistoricalPriceBackfill: 'preview-historical-price-backfill',
+  backfillHistoricalPrices: 'backfill-historical-prices',
 } as const
 
 export const WorkerCommandFlag = {
@@ -419,6 +423,7 @@ export const JobName = {
   financialDerivedMetricCalculation: 'financial-derived-metric-calculation',
   qualitativeExtraction: 'qualitative-extraction',
   dailyPriceSync: 'daily-price-sync',
+  historicalPriceBackfill: 'historical-price-backfill',
 } as const
 
 export const JobStatus = {

@@ -92,7 +92,10 @@ function isRealCalendarDate(value: string): boolean {
 }
 
 function validateRequest(request: TiingoDailyPriceRequest): void {
-  if (!providerSymbolPattern.test(request.providerSymbol)) {
+  if (
+    typeof request.providerSymbol !== 'string'
+    || !providerSymbolPattern.test(request.providerSymbol)
+  ) {
     throw new Error(`Invalid Tiingo provider symbol: ${request.providerSymbol}`)
   }
   if (!isRealCalendarDate(request.startDate)) {

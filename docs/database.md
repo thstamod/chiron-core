@@ -71,9 +71,12 @@ Important fields:
 - `applicable_from`: the first date on which the mapping may be selected.
 - `rationale`: the understandable reason for choosing that comparison.
 
-The `benchmark-proxy-v1` mappings begin on 29 October 2026. They are research assumptions that
-must be validated; they are not financial facts. Applying a mapping to earlier historical events
-requires a separate researched backfill rather than silently using today's classification.
+The forward mapping versions begin on their recorded `applicable_from` dates. They are research
+assumptions that must be validated; they are not financial facts. Historical evaluation uses the
+separate `benchmark-proxy-historical-2026-v1` reconstruction from 1 January 2026. That version
+copies the complete frozen `benchmark-proxy-v2` company-to-benchmark set before outcomes are
+calculated. Its real, later `created_at` timestamp remains visible, so it must not be presented as a
+mapping Chiron observed live at the historical date.
 
 ### `daily_price_observations`
 
