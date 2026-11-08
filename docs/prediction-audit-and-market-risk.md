@@ -86,6 +86,28 @@ reasonable private advantage only when it demonstrates measurable value beyond t
 on untouched data. An intentionally reviewed implementation may later be promoted to core, while
 private data, fitted parameters, and unreleased experiment evidence remain private.
 
+The boundary has three locations, not two:
+
+| Location | What belongs there | Concrete examples |
+| --- | --- | --- |
+| Public `chiron-core` Git repository | Reusable application and baseline research code | SEC and price ingestion, foundational migrations, baseline prompt and schema, transparent scoring, historical replay, immutable evaluation, dashboard/API, generic RAG and model interfaces |
+| Private `chiron-research` Git repository | Experiment code and configurations that may represent accumulated research knowledge | Prompt variants, experiment definitions, analysis notebooks, feature experiments, sensitivity analysis, tuned scoring configurations, model-training and comparison code, production-only research jobs |
+| Private database, storage, or ignored `data/` and `outputs/` folders | Actual research data and generated artifacts; these are not committed to either Git repository | SEC documents, reviewed corrections, embeddings, outcome datasets, experiment results, charts, fitted model files, licensed data, and the private forward record |
+
+Examples of the intended split:
+
+- The generic RAG pipeline is public; the real reviewed retrieval corpus and tuned retrieval
+  configuration are private.
+- A generic logistic-regression training interface may be public; coefficients fitted from private
+  outcomes and the resulting model artifact remain private.
+- The transparent financial-plus-qualitative formula may be public; a data-derived weighting that
+  demonstrates an advantage on untouched events may remain private.
+- The market-context collection contract may be public; proprietary source selection, licensed
+  feeds, and proven context weights may remain private.
+
+Nothing currently implemented for historical prediction, price backfill, or evaluation belongs in
+the research repository. Those are general audit capabilities and remain in `chiron-core`.
+
 ## Second deliverable: a point-in-time context experiment
 
 Only after reviewing the audit, define a small experimental indicator using candidate inputs:
