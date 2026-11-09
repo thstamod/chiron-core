@@ -70,6 +70,9 @@ its files, worker functions, database relationships, and the future research pip
 See [Transparent scoring](docs/scoring.md) for the initial `-5…+5` point rules and the assumptions
 that must be validated before drawing conclusions from their results.
 
+See [Starter watchlist](docs/starter-watchlist.md) for the frozen 30-company research universe,
+SEC identifiers, versioned market and sector mappings, selection rules, and known limitations.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` only when connecting external services. Never commit `.env`.
