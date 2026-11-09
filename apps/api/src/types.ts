@@ -1,11 +1,46 @@
 export interface ResearchEvaluation {
+  id: string
   horizonDays: number
+  plannedExitSession: string
+  stockEntryPrice: number
+  stockExitPrice: number
+  marketEntryPrice: number
+  marketExitPrice: number
+  sectorEntryPrice: number | null
+  sectorExitPrice: number | null
   stockReturn: number
   marketReturn: number
   sectorReturn: number | null
   stockMinusMarketReturn: number
   stockMinusSectorReturn: number | null
+  stockEntryPriceObservationId: string
+  stockExitPriceObservationId: string
+  marketEntryPriceObservationId: string
+  marketExitPriceObservationId: string
+  sectorEntryPriceObservationId: string | null
+  sectorExitPriceObservationId: string | null
+  methodologyVersion: string
+  reconstructionRuleVersion: string | null
   calculatedAt: string
+  recordedAt: string
+  snapshotFingerprint: string
+}
+
+export interface ResearchHistoricalPredictionResult {
+  predictionId: string
+  eventId: string
+  companyName: string
+  ticker: string
+  sector: string | null
+  periodEnd: string | null
+  score: number
+  ruleVersion: string
+  experimentVersion: string
+  featureSetVersion: string
+  simulatedCutoffAt: string
+  recordedAt: string
+  plannedEntrySession: string
+  evaluations: ResearchEvaluation[]
 }
 
 export type ResearchScoreComponentCategory = 'financial' | 'qualitative'
@@ -165,4 +200,5 @@ export interface ResearchRepository {
   getRecentUnpredictedEvents(limit: number): Promise<ResearchEarningsEvent[]>
   getEventDetails(eventId: string): Promise<ResearchEventDetails | null>
   getPredictionEvidence(predictionId: string): Promise<ResearchPredictionEvidence | null>
+  getHistoricalPredictionResults(limit: number): Promise<ResearchHistoricalPredictionResult[]>
 }

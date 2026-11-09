@@ -16,6 +16,8 @@ import {
   type ResearchCompany,
   type ResearchEventDetails,
   type ResearchEarningsEvent,
+  type ResearchEvaluation,
+  type ResearchHistoricalPredictionResult,
   type ResearchPrediction,
   type ResearchPredictionEvidence,
 } from './research-api'
@@ -23,6 +25,7 @@ import {
 const events = ref<ResearchEarningsEvent[]>([])
 const unpredictedEvents = ref<ResearchEarningsEvent[]>([])
 const watchlistCompanies = ref<ResearchCompany[]>([])
+const historicalPredictionResults = ref<ResearchHistoricalPredictionResult[]>([])
 const selectedId = ref('')
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
@@ -38,6 +41,40 @@ let eventDetailsRequestSequence = 0
 const selectedEvent = computed(() => (
   events.value.find((event) => event.id === selectedId.value) ?? events.value[0] ?? null
 ))
+
+interface HistoricalEvaluationDisplayRow {
+  prediction: ResearchHistoricalPredictionResult
+  evaluation: ResearchEvaluation
+}
+
+const historicalEvaluationRows = computed<HistoricalEvaluationDisplayRow[]>(() => (
+  historicalPredictionResults.value.flatMap((prediction) => (
+    prediction.evaluations.map((evaluation) => ({ prediction, evaluation }))
+  ))
+))
+
+type EvaluationHorizon = typeof RequiredEvaluationHorizons[number]
+
+function plannedExitSessionForHorizon(
+  prediction: ResearchPrediction,
+  horizonDays: EvaluationHorizon,
+): string {
+  if (horizonDays === 1) return prediction.plannedDay1Session
+  if (horizonDays === 5) return prediction.plannedDay5Session
+  return prediction.plannedDay20Session
+}
+
+const forwardEvaluationRows = computed(() => {
+  const prediction = selectedEvent.value?.latestPrediction
+  if (!prediction) return []
+  return RequiredEvaluationHorizons.map((horizonDays) => ({
+    horizonDays,
+    plannedExitSession: plannedExitSessionForHorizon(prediction, horizonDays),
+    evaluation: prediction.evaluations.find(
+      (candidate) => candidate.horizonDays === horizonDays,
+    ) ?? null,
+  }))
+})
 
 const apiStateLabel = computed(() => {
   if (isLoading.value) return 'Loading research data'
@@ -74,6 +111,27 @@ function displayTimestamp(value: string): string {
     timeZone: 'UTC',
   }).format(new Date(value))
   return `${formattedTimestamp} UTC`
+}
+
+function formatPercentageReturn(value: number | null): string {
+  if (value === null) return UiText.unavailable
+  const percentage = value * 100
+  return `${percentage > 0 ? ScoreFormat.positivePrefix : ''}${percentage.toFixed(2)}%`
+}
+
+function formatPrice(value: number | null): string {
+  if (value === null) return UiText.unavailable
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value)
+}
+
+function classForReturn(value: number | null): string {
+  if (value === null || value === 0) return 'neutral-return'
+  return value > 0 ? 'positive-return' : 'negative-return'
 }
 
 function financialMetricLabel(metricCode: string): string {
@@ -168,6 +226,7 @@ async function refreshEvents(): Promise<void> {
     events.value = overview.predictionEvents
     unpredictedEvents.value = overview.unpredictedEvents
     watchlistCompanies.value = overview.watchlistCompanies
+    historicalPredictionResults.value = overview.historicalPredictionResults
     if (!events.value.some((event) => event.id === selectedId.value)) {
       selectedId.value = events.value[0]?.id ?? ''
     }
@@ -252,6 +311,7 @@ watch(
         <a href="#companies">Companies</a>
         <a href="#unpredicted">Unpredicted events</a>
         <a href="#results">Results</a>
+        <a href="#historical-results">Historical results</a>
         <a href="#method">Method</a>
       </nav>
       <p class="research-note">Research tool only.<br />No buy or sell recommendations.</p>
@@ -348,6 +408,50 @@ watch(
             <p class="immutable-note">These timestamps and planned market sessions cannot be changed after prediction creation.</p>
           </section>
         </div>
+
+        <section v-if="selectedEvent.latestPrediction" id="results" class="panel evaluation-results-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Immutable forward outcomes</p><h2>What happened after the prediction?</h2></div>
+            <span>{{ selectedEvent.ticker }} · adjusted opening price to adjusted closing price</span>
+          </div>
+          <div class="evaluation-card-grid">
+            <article
+              v-for="result in forwardEvaluationRows"
+              :key="result.horizonDays"
+              class="evaluation-card"
+              :class="{ pending: !result.evaluation }"
+            >
+              <div class="evaluation-card-heading">
+                <div><strong>Day {{ result.horizonDays }}</strong><span>{{ displayDate(result.plannedExitSession) }}</span></div>
+                <span v-if="result.evaluation" class="status-pill">Stored</span>
+                <span v-else class="status-pill pending">Pending</span>
+              </div>
+              <template v-if="result.evaluation">
+                <dl class="return-summary">
+                  <div><dt>Stock return</dt><dd :class="classForReturn(result.evaluation.stockReturn)">{{ formatPercentageReturn(result.evaluation.stockReturn) }}</dd></div>
+                  <div><dt>Versus SPY</dt><dd :class="classForReturn(result.evaluation.stockMinusMarketReturn)">{{ formatPercentageReturn(result.evaluation.stockMinusMarketReturn) }}</dd></div>
+                  <div><dt>Versus sector</dt><dd :class="classForReturn(result.evaluation.stockMinusSectorReturn)">{{ formatPercentageReturn(result.evaluation.stockMinusSectorReturn) }}</dd></div>
+                </dl>
+                <details class="price-evidence-details">
+                  <summary>Exact prices and audit evidence</summary>
+                  <dl>
+                    <div><dt>{{ selectedEvent.ticker }}</dt><dd>{{ formatPrice(result.evaluation.stockEntryPrice) }} → {{ formatPrice(result.evaluation.stockExitPrice) }}</dd></div>
+                    <div><dt>SPY</dt><dd>{{ formatPrice(result.evaluation.marketEntryPrice) }} → {{ formatPrice(result.evaluation.marketExitPrice) }}</dd></div>
+                    <div><dt>Sector</dt><dd>{{ formatPrice(result.evaluation.sectorEntryPrice) }} → {{ formatPrice(result.evaluation.sectorExitPrice) }}</dd></div>
+                  </dl>
+                  <p><strong>Stock observations</strong><code>{{ result.evaluation.stockEntryPriceObservationId }}</code><code>{{ result.evaluation.stockExitPriceObservationId }}</code></p>
+                  <p><strong>SPY observations</strong><code>{{ result.evaluation.marketEntryPriceObservationId }}</code><code>{{ result.evaluation.marketExitPriceObservationId }}</code></p>
+                  <p v-if="result.evaluation.sectorEntryPriceObservationId && result.evaluation.sectorExitPriceObservationId"><strong>Sector observations</strong><code>{{ result.evaluation.sectorEntryPriceObservationId }}</code><code>{{ result.evaluation.sectorExitPriceObservationId }}</code></p>
+                  <p><strong>Snapshot fingerprint</strong><code>{{ result.evaluation.snapshotFingerprint }}</code></p>
+                  <p><strong>Calculation methodology</strong><code>{{ result.evaluation.methodologyVersion }}</code></p>
+                  <p><strong>Calculated</strong><span>{{ displayTimestamp(result.evaluation.calculatedAt) }}</span></p>
+                  <p><strong>Recorded</strong><span>{{ displayTimestamp(result.evaluation.recordedAt) }}</span></p>
+                </details>
+              </template>
+              <p v-else class="pending-result-message">This result remains empty until the planned market session closes and an immutable evaluation is created.</p>
+            </article>
+          </div>
+        </section>
 
         <section v-if="selectedEvent.latestPrediction" class="panel extraction-audit-panel">
           <div class="section-heading">
@@ -530,6 +634,45 @@ watch(
       </template>
 
       <template v-if="!isLoading && !loadError">
+        <section id="historical-results" class="panel data-panel historical-results-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Separate retrospective experiment</p><h2>Historical evaluation results</h2></div>
+            <span>{{ historicalEvaluationRows.length }} immutable outcomes</span>
+          </div>
+          <p class="historical-results-note">These are reconstructed historical experiments, not predictions recorded live at the original event date.</p>
+          <div v-if="historicalEvaluationRows.length === 0" class="empty-data-message">
+            No completed historical evaluations are stored.
+          </div>
+          <div v-else class="table-wrap">
+            <table>
+              <thead><tr><th>Company</th><th>Horizon</th><th>Score</th><th>Stock return</th><th>Versus SPY</th><th>Versus sector</th><th>Evidence</th></tr></thead>
+              <tbody>
+                <tr v-for="row in historicalEvaluationRows" :key="row.evaluation.id">
+                  <td><strong>{{ row.prediction.companyName }}</strong><span class="secondary-table-value">{{ row.prediction.ticker }} · {{ displayDate(row.prediction.periodEnd) }}</span></td>
+                  <td>Day {{ row.evaluation.horizonDays }}<span class="secondary-table-value">{{ displayDate(row.evaluation.plannedExitSession) }}</span></td>
+                  <td>{{ scoreLabel(row.prediction.score) }}</td>
+                  <td :class="classForReturn(row.evaluation.stockReturn)">{{ formatPercentageReturn(row.evaluation.stockReturn) }}</td>
+                  <td :class="classForReturn(row.evaluation.stockMinusMarketReturn)">{{ formatPercentageReturn(row.evaluation.stockMinusMarketReturn) }}</td>
+                  <td :class="classForReturn(row.evaluation.stockMinusSectorReturn)">{{ formatPercentageReturn(row.evaluation.stockMinusSectorReturn) }}</td>
+                  <td>
+                    <details class="table-evidence-details">
+                      <summary>Inspect</summary>
+                      <p><strong>{{ row.prediction.ticker }}</strong> {{ formatPrice(row.evaluation.stockEntryPrice) }} → {{ formatPrice(row.evaluation.stockExitPrice) }}</p>
+                      <p><strong>SPY</strong> {{ formatPrice(row.evaluation.marketEntryPrice) }} → {{ formatPrice(row.evaluation.marketExitPrice) }}</p>
+                      <p><strong>Sector</strong> {{ formatPrice(row.evaluation.sectorEntryPrice) }} → {{ formatPrice(row.evaluation.sectorExitPrice) }}</p>
+                      <p><strong>Prediction cutoff</strong> {{ displayTimestamp(row.prediction.simulatedCutoffAt) }}</p>
+                      <p><strong>Snapshot</strong><code>{{ row.evaluation.snapshotFingerprint }}</code></p>
+                      <p><strong>Calculation methodology</strong><code>{{ row.evaluation.methodologyVersion }}</code></p>
+                      <p><strong>Reconstruction rule</strong><code>{{ row.evaluation.reconstructionRuleVersion }}</code></p>
+                      <p><strong>Calculated</strong> {{ displayTimestamp(row.evaluation.calculatedAt) }}</p>
+                    </details>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section id="unpredicted" class="panel data-panel awaiting-events-panel">
           <div class="section-heading">
             <div><p class="eyebrow">Stored event visibility</p><h2>Events without predictions</h2></div>

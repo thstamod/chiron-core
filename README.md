@@ -8,8 +8,9 @@ It is a research and learning project. It does not provide personal investment a
 
 Phase 1 provides:
 
-- A Vue 3 dashboard that reads stored predictions, evidence, SEC source documents, and deterministic
-  financial values through a local GraphQL API.
+- A Vue 3 dashboard that reads stored predictions, evidence, SEC source documents, deterministic
+  financial values, and clearly separated forward and retrospective outcomes through a local
+  GraphQL API.
 - A small read-only Node.js API that keeps the Supabase secret out of the browser.
 - A TypeScript worker foundation.
 - Shared domain types.

@@ -20,6 +20,7 @@ import type {
   ResearchEarningsEvent,
   ResearchEvaluation,
   ResearchEventDetails,
+  ResearchHistoricalPredictionResult,
   ResearchPrediction,
   ResearchRepository,
 } from './types.js'
@@ -37,13 +38,50 @@ interface WatchlistCompanyRow extends EventCompanyRow {
 }
 
 interface EvaluationRow {
+  id: string
   horizon_days: number
+  planned_exit_session: string
+  stock_entry_price: number | string
+  stock_exit_price: number | string
+  market_entry_price: number | string
+  market_exit_price: number | string
+  sector_entry_price: number | string | null
+  sector_exit_price: number | string | null
   stock_return: number | string
   market_return: number | string
   sector_return: number | string | null
   stock_minus_market_return: number | string
   stock_minus_sector_return: number | string | null
+  stock_entry_price_observation_id: string
+  stock_exit_price_observation_id: string
+  market_entry_price_observation_id: string
+  market_exit_price_observation_id: string
+  sector_entry_price_observation_id: string | null
+  sector_exit_price_observation_id: string | null
+  methodology_version: string
+  reconstruction_rule_version?: string
   calculated_at: string
+  recorded_at: string
+  snapshot_sha256: string
+}
+
+interface HistoricalPredictionEventRow {
+  id: string
+  period_end: string | null
+  companies: EventCompanyRow | EventCompanyRow[]
+}
+
+interface HistoricalPredictionResultRow {
+  id: string
+  score: number
+  rule_version: string
+  experiment_version: string
+  feature_set_version: string
+  simulated_cutoff_at: string
+  recorded_at: string
+  planned_entry_session: string
+  earnings_events: HistoricalPredictionEventRow | HistoricalPredictionEventRow[]
+  historical_evaluations: EvaluationRow[]
 }
 
 interface PredictionRow {
@@ -109,13 +147,59 @@ function nullableNumericValue(value: number | string | null): number | null {
 
 function presentEvaluation(row: EvaluationRow): ResearchEvaluation {
   return {
+    id: row.id,
     horizonDays: row.horizon_days,
+    plannedExitSession: row.planned_exit_session,
+    stockEntryPrice: numericValue(row.stock_entry_price),
+    stockExitPrice: numericValue(row.stock_exit_price),
+    marketEntryPrice: numericValue(row.market_entry_price),
+    marketExitPrice: numericValue(row.market_exit_price),
+    sectorEntryPrice: nullableNumericValue(row.sector_entry_price),
+    sectorExitPrice: nullableNumericValue(row.sector_exit_price),
     stockReturn: numericValue(row.stock_return),
     marketReturn: numericValue(row.market_return),
     sectorReturn: nullableNumericValue(row.sector_return),
     stockMinusMarketReturn: numericValue(row.stock_minus_market_return),
     stockMinusSectorReturn: nullableNumericValue(row.stock_minus_sector_return),
+    stockEntryPriceObservationId: row.stock_entry_price_observation_id,
+    stockExitPriceObservationId: row.stock_exit_price_observation_id,
+    marketEntryPriceObservationId: row.market_entry_price_observation_id,
+    marketExitPriceObservationId: row.market_exit_price_observation_id,
+    sectorEntryPriceObservationId: row.sector_entry_price_observation_id,
+    sectorExitPriceObservationId: row.sector_exit_price_observation_id,
+    methodologyVersion: row.methodology_version,
+    reconstructionRuleVersion: row.reconstruction_rule_version ?? null,
     calculatedAt: row.calculated_at,
+    recordedAt: row.recorded_at,
+    snapshotFingerprint: row.snapshot_sha256,
+  }
+}
+
+function presentHistoricalPredictionResult(
+  row: HistoricalPredictionResultRow,
+): ResearchHistoricalPredictionResult {
+  const event = Array.isArray(row.earnings_events)
+    ? row.earnings_events[0]
+    : row.earnings_events
+  if (!event) throw new Error('Historical prediction is missing its earnings event')
+  const company = singleCompany(event.companies)
+  return {
+    predictionId: row.id,
+    eventId: event.id,
+    companyName: company.legal_name,
+    ticker: company.ticker,
+    sector: company.sector,
+    periodEnd: event.period_end,
+    score: row.score,
+    ruleVersion: row.rule_version,
+    experimentVersion: row.experiment_version,
+    featureSetVersion: row.feature_set_version,
+    simulatedCutoffAt: row.simulated_cutoff_at,
+    recordedAt: row.recorded_at,
+    plannedEntrySession: row.planned_entry_session,
+    evaluations: row.historical_evaluations
+      .map(presentEvaluation)
+      .sort((left, right) => left.horizonDays - right.horizonDays),
   }
 }
 
@@ -220,13 +304,30 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
             planned_day_20_session,
             snapshot,
             evaluations(
+              id,
               horizon_days,
+              planned_exit_session,
+              stock_entry_price,
+              stock_exit_price,
+              market_entry_price,
+              market_exit_price,
+              sector_entry_price,
+              sector_exit_price,
               stock_return,
               market_return,
               sector_return,
               stock_minus_market_return,
               stock_minus_sector_return,
-              calculated_at
+              stock_entry_price_observation_id,
+              stock_exit_price_observation_id,
+              market_entry_price_observation_id,
+              market_exit_price_observation_id,
+              sector_entry_price_observation_id,
+              sector_exit_price_observation_id,
+              methodology_version,
+              calculated_at,
+              recorded_at,
+              snapshot_sha256
             )
           )
         `)
@@ -364,6 +465,60 @@ export function createResearchRepository(client: SupabaseClient): ResearchReposi
         frozenEvidence,
         documentData as EvidenceDocumentRow[],
       )
+    },
+
+    async getHistoricalPredictionResults(limit): Promise<ResearchHistoricalPredictionResult[]> {
+      const { data, error } = await client
+        .from(ApiDatabaseTable.historicalPredictions)
+        .select(`
+          id,
+          score,
+          rule_version,
+          experiment_version,
+          feature_set_version,
+          simulated_cutoff_at,
+          recorded_at,
+          planned_entry_session,
+          earnings_events!inner(
+            id,
+            period_end,
+            companies!inner(id,ticker,legal_name,sector)
+          ),
+          historical_evaluations!inner(
+            id,
+            horizon_days,
+            planned_exit_session,
+            stock_entry_price,
+            stock_exit_price,
+            market_entry_price,
+            market_exit_price,
+            sector_entry_price,
+            sector_exit_price,
+            stock_return,
+            market_return,
+            sector_return,
+            stock_minus_market_return,
+            stock_minus_sector_return,
+            stock_entry_price_observation_id,
+            stock_exit_price_observation_id,
+            market_entry_price_observation_id,
+            market_exit_price_observation_id,
+            sector_entry_price_observation_id,
+            sector_exit_price_observation_id,
+            methodology_version,
+            reconstruction_rule_version,
+            calculated_at,
+            recorded_at,
+            snapshot_sha256
+          )
+        `)
+        .order('recorded_at', { ascending: false })
+        .limit(limit)
+
+      if (error) {
+        throw new Error(`Could not load historical prediction results: ${error.message}`)
+      }
+      return (data as HistoricalPredictionResultRow[]).map(presentHistoricalPredictionResult)
     },
   }
 }

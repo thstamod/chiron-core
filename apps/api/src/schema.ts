@@ -6,13 +6,13 @@ export interface ApiContext {
   repository: ResearchRepository
 }
 
-function normalizedEventLimit(requestedLimit: number | null | undefined): number {
+function normalizedQueryLimit(requestedLimit: number | null | undefined): number {
   if (requestedLimit === null || requestedLimit === undefined) {
-    return ApiQueryLimit.defaultRecentEvents
+    return ApiQueryLimit.defaultRecords
   }
   return Math.min(
-    Math.max(requestedLimit, ApiQueryLimit.minimumRecentEvents),
-    ApiQueryLimit.maximumRecentEvents,
+    Math.max(requestedLimit, ApiQueryLimit.minimumRecords),
+    ApiQueryLimit.maximumRecords,
   )
 }
 
@@ -23,6 +23,7 @@ export const apiSchema = createSchema<ApiContext>({
       watchlistCompanies: [Company!]!
       recentPredictionEvents(limit: Int = 25): [EarningsEvent!]!
       recentUnpredictedEvents(limit: Int = 25): [EarningsEvent!]!
+      historicalPredictionResults(limit: Int = 25): [HistoricalPredictionResult!]!
       earningsEventDetails(eventId: ID!): EarningsEventDetails
       predictionEvidence(predictionId: ID!): PredictionEvidence
     }
@@ -84,13 +85,48 @@ export const apiSchema = createSchema<ApiContext>({
     }
 
     type Evaluation {
+      id: ID!
       horizonDays: Int!
+      plannedExitSession: String!
+      stockEntryPrice: Float!
+      stockExitPrice: Float!
+      marketEntryPrice: Float!
+      marketExitPrice: Float!
+      sectorEntryPrice: Float
+      sectorExitPrice: Float
       stockReturn: Float!
       marketReturn: Float!
       sectorReturn: Float
       stockMinusMarketReturn: Float!
       stockMinusSectorReturn: Float
+      stockEntryPriceObservationId: ID!
+      stockExitPriceObservationId: ID!
+      marketEntryPriceObservationId: ID!
+      marketExitPriceObservationId: ID!
+      sectorEntryPriceObservationId: ID
+      sectorExitPriceObservationId: ID
+      methodologyVersion: String!
+      reconstructionRuleVersion: String
       calculatedAt: String!
+      recordedAt: String!
+      snapshotFingerprint: String!
+    }
+
+    type HistoricalPredictionResult {
+      predictionId: ID!
+      eventId: ID!
+      companyName: String!
+      ticker: String!
+      sector: String
+      periodEnd: String
+      score: Int!
+      ruleVersion: String!
+      experimentVersion: String!
+      featureSetVersion: String!
+      simulatedCutoffAt: String!
+      recordedAt: String!
+      plannedEntrySession: String!
+      evaluations: [Evaluation!]!
     }
 
     type EarningsEventDetails {
@@ -196,13 +232,20 @@ export const apiSchema = createSchema<ApiContext>({
         _parent: unknown,
         argumentsValue: { limit?: number | null },
         context: ApiContext,
-      ) => context.repository.getRecentPredictionEvents(normalizedEventLimit(argumentsValue.limit)),
+      ) => context.repository.getRecentPredictionEvents(normalizedQueryLimit(argumentsValue.limit)),
       recentUnpredictedEvents: (
         _parent: unknown,
         argumentsValue: { limit?: number | null },
         context: ApiContext,
       ) => context.repository.getRecentUnpredictedEvents(
-        normalizedEventLimit(argumentsValue.limit),
+        normalizedQueryLimit(argumentsValue.limit),
+      ),
+      historicalPredictionResults: (
+        _parent: unknown,
+        argumentsValue: { limit?: number | null },
+        context: ApiContext,
+      ) => context.repository.getHistoricalPredictionResults(
+        normalizedQueryLimit(argumentsValue.limit),
       ),
       earningsEventDetails: (
         _parent: unknown,

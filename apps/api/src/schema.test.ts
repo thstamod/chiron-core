@@ -23,6 +23,9 @@ test('loads recent prediction events through the repository and caps the request
     async getPredictionEvidence() {
       return null
     },
+    async getHistoricalPredictionResults() {
+      return []
+    },
   }
 
   const result = await graphql({
@@ -76,6 +79,9 @@ test('loads the watchlist and unpredicted events through explicit repository met
     },
     async getPredictionEvidence() {
       return null
+    },
+    async getHistoricalPredictionResults() {
+      return []
     },
   }
 
@@ -147,6 +153,9 @@ test('exposes the frozen qualitative extraction audit through prediction evidenc
         },
       }
     },
+    async getHistoricalPredictionResults() {
+      return []
+    },
   }
 
   const result = await graphql({
@@ -172,4 +181,92 @@ test('exposes the frozen qualitative extraction audit through prediction evidenc
   assert.equal(predictionEvidence.extractionAudit.reviewDecision, 'corrected')
   assert.equal(predictionEvidence.extractionAudit.originalOutputJson, '{"summary":"original"}')
   assert.equal(predictionEvidence.extractionAudit.effectiveOutputJson, '{"summary":"corrected"}')
+})
+
+test('keeps retrospective historical outcomes separate and caps their query limit', async () => {
+  let receivedHistoricalLimit = 0
+  const repository: ResearchRepository = {
+    async getWatchlistCompanies() { return [] },
+    async getRecentPredictionEvents() { return [] },
+    async getRecentUnpredictedEvents() { return [] },
+    async getEventDetails() { return null },
+    async getPredictionEvidence() { return null },
+    async getHistoricalPredictionResults(limit) {
+      receivedHistoricalLimit = limit
+      return [{
+        predictionId: 'historical-prediction-id',
+        eventId: 'event-id',
+        companyName: 'Example Company',
+        ticker: 'EXAMPLE',
+        sector: 'Technology',
+        periodEnd: '2026-09-30',
+        score: 2,
+        ruleVersion: 'historical-score-v1',
+        experimentVersion: 'historical-pilot-v1',
+        featureSetVersion: 'qualitative-only-v1',
+        simulatedCutoffAt: '2026-10-20T20:05:00.000Z',
+        recordedAt: '2026-11-08T10:00:00.000Z',
+        plannedEntrySession: '2026-10-21',
+        evaluations: [{
+          id: 'historical-evaluation-id',
+          horizonDays: 5,
+          plannedExitSession: '2026-10-27',
+          stockEntryPrice: 100,
+          stockExitPrice: 105,
+          marketEntryPrice: 200,
+          marketExitPrice: 202,
+          sectorEntryPrice: 50,
+          sectorExitPrice: 51,
+          stockReturn: 0.05,
+          marketReturn: 0.01,
+          sectorReturn: 0.02,
+          stockMinusMarketReturn: 0.04,
+          stockMinusSectorReturn: 0.03,
+          stockEntryPriceObservationId: 'stock-entry-id',
+          stockExitPriceObservationId: 'stock-exit-id',
+          marketEntryPriceObservationId: 'market-entry-id',
+          marketExitPriceObservationId: 'market-exit-id',
+          sectorEntryPriceObservationId: 'sector-entry-id',
+          sectorExitPriceObservationId: 'sector-exit-id',
+          methodologyVersion: 'adjusted-open-to-adjusted-close-v1',
+          reconstructionRuleVersion: 'retrospective-price-reconstruction-v1',
+          calculatedAt: '2026-11-08T10:00:00.000Z',
+          recordedAt: '2026-11-08T10:00:01.000Z',
+          snapshotFingerprint: 'a'.repeat(64),
+        }],
+      }]
+    },
+  }
+
+  const result = await graphql({
+    schema: apiSchema,
+    source: `query {
+      historicalPredictionResults(limit: 500) {
+        ticker
+        experimentVersion
+        evaluations {
+          horizonDays
+          stockEntryPrice
+          stockReturn
+          stockMinusMarketReturn
+          reconstructionRuleVersion
+          snapshotFingerprint
+        }
+      }
+    }`,
+    contextValue: { repository },
+  })
+
+  assert.equal(result.errors, undefined)
+  assert.equal(receivedHistoricalLimit, 100)
+  const historicalResults = result.data?.historicalPredictionResults as Array<{
+    ticker: string
+    experimentVersion: string
+    evaluations: Array<Record<string, unknown>>
+  }>
+  assert.equal(historicalResults[0]?.ticker, 'EXAMPLE')
+  assert.equal(historicalResults[0]?.experimentVersion, 'historical-pilot-v1')
+  assert.equal(historicalResults[0]?.evaluations[0]?.stockReturn, 0.05)
+  assert.equal(historicalResults[0]?.evaluations[0]?.stockMinusMarketReturn, 0.04)
+  assert.equal(historicalResults[0]?.evaluations[0]?.snapshotFingerprint, 'a'.repeat(64))
 })

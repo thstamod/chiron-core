@@ -1,6 +1,46 @@
 export interface ResearchEvaluation {
+  id: string
   horizonDays: number
+  plannedExitSession: string
+  stockEntryPrice: number
+  stockExitPrice: number
+  marketEntryPrice: number
+  marketExitPrice: number
+  sectorEntryPrice: number | null
+  sectorExitPrice: number | null
+  stockReturn: number
+  marketReturn: number
+  sectorReturn: number | null
   stockMinusMarketReturn: number
+  stockMinusSectorReturn: number | null
+  stockEntryPriceObservationId: string
+  stockExitPriceObservationId: string
+  marketEntryPriceObservationId: string
+  marketExitPriceObservationId: string
+  sectorEntryPriceObservationId: string | null
+  sectorExitPriceObservationId: string | null
+  methodologyVersion: string
+  reconstructionRuleVersion: string | null
+  calculatedAt: string
+  recordedAt: string
+  snapshotFingerprint: string
+}
+
+export interface ResearchHistoricalPredictionResult {
+  predictionId: string
+  eventId: string
+  companyName: string
+  ticker: string
+  sector: string | null
+  periodEnd: string | null
+  score: number
+  ruleVersion: string
+  experimentVersion: string
+  featureSetVersion: string
+  simulatedCutoffAt: string
+  recordedAt: string
+  plannedEntrySession: string
+  evaluations: ResearchEvaluation[]
 }
 
 export interface ResearchScoreComponent {
@@ -58,6 +98,7 @@ export interface ResearchOverview {
   predictionEvents: ResearchEarningsEvent[]
   unpredictedEvents: ResearchEarningsEvent[]
   watchlistCompanies: ResearchCompany[]
+  historicalPredictionResults: ResearchHistoricalPredictionResult[]
 }
 
 export interface ResearchSourceDocument {
@@ -160,6 +201,7 @@ interface ResearchOverviewResponse {
     recentPredictionEvents: ResearchEarningsEvent[]
     recentUnpredictedEvents: ResearchEarningsEvent[]
     watchlistCompanies: ResearchCompany[]
+    historicalPredictionResults: ResearchHistoricalPredictionResult[]
   }
   errors?: GraphQlError[]
 }
@@ -178,10 +220,11 @@ const ResearchApiConfig = {
   endpoint: '/graphql',
   recentEventsLimit: 25,
   recentUnpredictedEventsLimit: 25,
+  historicalResultsLimit: 25,
 } as const
 
 const ResearchOverviewQuery = /* GraphQL */ `
-  query ResearchOverview($predictionLimit: Int!, $unpredictedLimit: Int!) {
+  query ResearchOverview($predictionLimit: Int!, $unpredictedLimit: Int!, $historicalLimit: Int!) {
     watchlistCompanies {
       id
       legalName
@@ -235,9 +278,74 @@ const ResearchOverviewQuery = /* GraphQL */ `
         managementTone
         mainRisk
         evaluations {
+          id
           horizonDays
+          plannedExitSession
+          stockEntryPrice
+          stockExitPrice
+          marketEntryPrice
+          marketExitPrice
+          sectorEntryPrice
+          sectorExitPrice
+          stockReturn
+          marketReturn
+          sectorReturn
           stockMinusMarketReturn
+          stockMinusSectorReturn
+          stockEntryPriceObservationId
+          stockExitPriceObservationId
+          marketEntryPriceObservationId
+          marketExitPriceObservationId
+          sectorEntryPriceObservationId
+          sectorExitPriceObservationId
+          methodologyVersion
+          reconstructionRuleVersion
+          calculatedAt
+          recordedAt
+          snapshotFingerprint
         }
+      }
+    }
+    historicalPredictionResults(limit: $historicalLimit) {
+      predictionId
+      eventId
+      companyName
+      ticker
+      sector
+      periodEnd
+      score
+      ruleVersion
+      experimentVersion
+      featureSetVersion
+      simulatedCutoffAt
+      recordedAt
+      plannedEntrySession
+      evaluations {
+        id
+        horizonDays
+        plannedExitSession
+        stockEntryPrice
+        stockExitPrice
+        marketEntryPrice
+        marketExitPrice
+        sectorEntryPrice
+        sectorExitPrice
+        stockReturn
+        marketReturn
+        sectorReturn
+        stockMinusMarketReturn
+        stockMinusSectorReturn
+        stockEntryPriceObservationId
+        stockExitPriceObservationId
+        marketEntryPriceObservationId
+        marketExitPriceObservationId
+        sectorEntryPriceObservationId
+        sectorExitPriceObservationId
+        methodologyVersion
+        reconstructionRuleVersion
+        calculatedAt
+        recordedAt
+        snapshotFingerprint
       }
     }
   }
@@ -339,6 +447,7 @@ export async function loadResearchOverview(): Promise<ResearchOverview> {
       variables: {
         predictionLimit: ResearchApiConfig.recentEventsLimit,
         unpredictedLimit: ResearchApiConfig.recentUnpredictedEventsLimit,
+        historicalLimit: ResearchApiConfig.historicalResultsLimit,
       },
     }),
   })
@@ -351,6 +460,7 @@ export async function loadResearchOverview(): Promise<ResearchOverview> {
     predictionEvents: result.data.recentPredictionEvents,
     unpredictedEvents: result.data.recentUnpredictedEvents,
     watchlistCompanies: result.data.watchlistCompanies,
+    historicalPredictionResults: result.data.historicalPredictionResults,
   }
 }
 

@@ -11,9 +11,9 @@ export const ApiServerConfig = {
 } as const
 
 export const ApiQueryLimit = {
-  defaultRecentEvents: 25,
-  minimumRecentEvents: 1,
-  maximumRecentEvents: 100,
+  defaultRecords: 25,
+  minimumRecords: 1,
+  maximumRecords: 100,
 } as const
 
 export const ApiDatabaseTable = {
@@ -22,6 +22,7 @@ export const ApiDatabaseTable = {
   earningsEvents: 'earnings_events',
   financialDerivedMetrics: 'financial_derived_metrics',
   financialMetrics: 'financial_metrics',
+  historicalPredictions: 'historical_predictions',
   predictions: 'predictions',
 } as const
 
