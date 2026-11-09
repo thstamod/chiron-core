@@ -153,6 +153,10 @@ export const EvaluationSnapshotVersion = {
   initial: 'evaluation-snapshot-v1',
 } as const
 
+export const HistoricalEvaluationSnapshotVersion = {
+  initial: 'historical-evaluation-snapshot-v1',
+} as const
+
 export const EvaluationHorizonTradingDays = {
   one: 1,
   five: 5,
@@ -399,6 +403,7 @@ export const WorkerCommand = {
   previewHistoricalPrediction: 'preview-historical-prediction',
   createHistoricalPrediction: 'create-historical-prediction',
   previewHistoricalEvaluation: 'preview-historical-evaluation',
+  createHistoricalEvaluation: 'create-historical-evaluation',
   previewHistoricalPriceBackfill: 'preview-historical-price-backfill',
   backfillHistoricalPrices: 'backfill-historical-prices',
 } as const
@@ -460,6 +465,7 @@ export const DatabaseTable = {
   evaluations: 'evaluations',
   historicalReconstructionPlans: 'historical_reconstruction_plans',
   historicalPredictions: 'historical_predictions',
+  historicalEvaluations: 'historical_evaluations',
   jobRuns: 'job_runs',
 } as const
 

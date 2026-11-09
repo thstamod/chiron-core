@@ -4,9 +4,12 @@ import {
   type BenchmarkRoleValue,
   DatabaseTable,
   EvaluationHorizonTradingDays,
+  HistoricalEvaluationSnapshotVersion,
   PriceInstrumentType,
   RuleVersion,
 } from './constants.js'
+import { canonicalJson } from './canonical-json.js'
+import { calculateContentSha256 } from './content-hash.js'
 import {
   calculateEvaluationReturns,
   type EvaluationReturnResult,
@@ -82,7 +85,7 @@ interface HistoricalEvaluationBenchmarkEvidence
 
 export interface HistoricalEvaluationPreview extends Record<string, unknown> {
   writesDatabase: false
-  status: 'ready' | 'not_ready'
+  status: 'ready' | 'not_ready' | 'already_evaluated'
   reconstructionMode: 'retrospective'
   historicalPredictionId: string
   historicalPredictionSnapshotFingerprint: string
@@ -101,6 +104,50 @@ export interface HistoricalEvaluationPreview extends Record<string, unknown> {
   marketBenchmark?: HistoricalEvaluationBenchmarkEvidence
   sectorBenchmark?: HistoricalEvaluationBenchmarkEvidence
   returns?: EvaluationReturnResult
+}
+
+export interface HistoricalEvaluationSnapshot {
+  schemaVersion: string
+  calculatedAt: string
+  methodologyVersion: string
+  reconstructionRuleVersion: string
+  reconstructionMode: 'retrospective'
+  historicalPrediction: {
+    id: string
+    snapshotFingerprint: string
+    experimentVersion: string
+    featureSetVersion: string
+    simulatedCutoffAt: string
+  }
+  horizonDays: EvaluationHorizonDays
+  entrySession: string
+  exitSession: string
+  stock: HistoricalEvaluationInstrumentEvidence
+  marketBenchmark: HistoricalEvaluationBenchmarkEvidence
+  sectorBenchmark: HistoricalEvaluationBenchmarkEvidence
+  returns: EvaluationReturnResult
+}
+
+export interface PreparedHistoricalEvaluationSnapshot {
+  snapshot: HistoricalEvaluationSnapshot
+  fingerprint: string
+}
+
+export interface HistoricalEvaluationCreationSummary extends Record<string, unknown> {
+  historicalEvaluationId: string
+  historicalPredictionId: string
+  ticker: string
+  horizonDays: EvaluationHorizonDays
+  methodologyVersion: string
+  reconstructionRuleVersion: string
+  calculatedAt: string
+  databaseRecordedAt: string
+  entrySession: string
+  exitSession: string
+  stockReturn: number
+  stockMinusMarketReturn: number
+  stockMinusSectorReturn: number
+  snapshotFingerprint: string
 }
 
 function singleCompany(
@@ -256,6 +303,28 @@ export async function previewHistoricalEvaluation(
       ...basePreview,
       status: 'not_ready',
       reasons: [`The ${horizonDays}-day historical exit session has not closed yet`],
+    }
+  }
+
+  const { data: existingEvaluation, error: existingEvaluationError } = await client
+    .from(DatabaseTable.historicalEvaluations)
+    .select('id')
+    .eq('historical_prediction_id', prediction.id)
+    .eq('horizon_days', horizonDays)
+    .eq('methodology_version', RuleVersion.evaluationMethodology)
+    .eq('reconstruction_rule_version', RuleVersion.historicalEvaluationReconstruction)
+    .limit(1)
+    .maybeSingle()
+  if (existingEvaluationError) {
+    throw new Error(
+      `Could not check for an existing historical evaluation: ${existingEvaluationError.message}`,
+    )
+  }
+  if (existingEvaluation) {
+    return {
+      ...basePreview,
+      status: 'already_evaluated',
+      reasons: [`Historical evaluation ${existingEvaluation.id} already exists`],
     }
   }
 
@@ -423,5 +492,121 @@ export async function previewHistoricalEvaluation(
     marketBenchmark,
     sectorBenchmark,
     returns,
+  }
+}
+
+export function prepareHistoricalEvaluationSnapshot(
+  preview: HistoricalEvaluationPreview,
+): PreparedHistoricalEvaluationSnapshot {
+  if (
+    preview.status !== 'ready'
+    || !preview.stock
+    || !preview.marketBenchmark
+    || !preview.sectorBenchmark
+    || !preview.returns
+    || !preview.returns.sectorBenchmark
+    || preview.returns.stockMinusSectorReturn === null
+  ) {
+    throw new Error(
+      `Historical evaluation is not ready: ${preview.reasons.join('; ') || preview.status}`,
+    )
+  }
+  const snapshot: HistoricalEvaluationSnapshot = {
+    schemaVersion: HistoricalEvaluationSnapshotVersion.initial,
+    calculatedAt: preview.calculatedAt,
+    methodologyVersion: preview.methodologyVersion,
+    reconstructionRuleVersion: preview.reconstructionRuleVersion,
+    reconstructionMode: preview.reconstructionMode,
+    historicalPrediction: {
+      id: preview.historicalPredictionId,
+      snapshotFingerprint: preview.historicalPredictionSnapshotFingerprint,
+      experimentVersion: preview.experimentVersion,
+      featureSetVersion: preview.featureSetVersion,
+      simulatedCutoffAt: preview.simulatedCutoffAt,
+    },
+    horizonDays: preview.horizonDays,
+    entrySession: preview.entrySession,
+    exitSession: preview.exitSession,
+    stock: preview.stock,
+    marketBenchmark: preview.marketBenchmark,
+    sectorBenchmark: preview.sectorBenchmark,
+    returns: preview.returns,
+  }
+  return {
+    snapshot,
+    fingerprint: calculateContentSha256(
+      new TextEncoder().encode(canonicalJson(snapshot)),
+    ),
+  }
+}
+
+export async function createAndStoreHistoricalEvaluation(
+  client: SupabaseClient,
+  historicalPredictionId: string,
+  horizonDays: EvaluationHorizonDays,
+  now: () => Date = () => new Date(),
+): Promise<HistoricalEvaluationCreationSummary> {
+  const preview = await previewHistoricalEvaluation(
+    client,
+    historicalPredictionId,
+    horizonDays,
+    now,
+  )
+  const { snapshot, fingerprint } = prepareHistoricalEvaluationSnapshot(preview)
+  const sectorBenchmarkReturn = snapshot.returns.sectorBenchmark
+  const stockMinusSectorReturn = snapshot.returns.stockMinusSectorReturn
+  if (!sectorBenchmarkReturn || stockMinusSectorReturn === null) {
+    throw new Error('Historical evaluation requires complete sector benchmark returns')
+  }
+  const { data, error } = await client
+    .from(DatabaseTable.historicalEvaluations)
+    .insert({
+      historical_prediction_id: snapshot.historicalPrediction.id,
+      horizon_days: snapshot.horizonDays,
+      stock_entry_price: snapshot.returns.stock.entryPrice,
+      stock_exit_price: snapshot.returns.stock.exitPrice,
+      market_entry_price: snapshot.returns.marketBenchmark.entryPrice,
+      market_exit_price: snapshot.returns.marketBenchmark.exitPrice,
+      sector_entry_price: sectorBenchmarkReturn.entryPrice,
+      sector_exit_price: sectorBenchmarkReturn.exitPrice,
+      stock_return: snapshot.returns.stock.returnFraction,
+      market_return: snapshot.returns.marketBenchmark.returnFraction,
+      sector_return: sectorBenchmarkReturn.returnFraction,
+      stock_minus_market_return: snapshot.returns.stockMinusMarketReturn,
+      stock_minus_sector_return: stockMinusSectorReturn,
+      stock_entry_price_observation_id: snapshot.stock.entryObservation.id,
+      stock_exit_price_observation_id: snapshot.stock.exitObservation.id,
+      market_entry_price_observation_id: snapshot.marketBenchmark.entryObservation.id,
+      market_exit_price_observation_id: snapshot.marketBenchmark.exitObservation.id,
+      sector_entry_price_observation_id: snapshot.sectorBenchmark.entryObservation.id,
+      sector_exit_price_observation_id: snapshot.sectorBenchmark.exitObservation.id,
+      market_benchmark_assignment_id: snapshot.marketBenchmark.assignment.id,
+      sector_benchmark_assignment_id: snapshot.sectorBenchmark.assignment.id,
+      planned_exit_session: snapshot.exitSession,
+      calculated_at: snapshot.calculatedAt,
+      methodology_version: snapshot.methodologyVersion,
+      reconstruction_rule_version: snapshot.reconstructionRuleVersion,
+      snapshot,
+      snapshot_schema_version: snapshot.schemaVersion,
+      snapshot_sha256: fingerprint,
+    })
+    .select('id,recorded_at')
+    .single()
+  if (error) throw new Error(`Could not save historical evaluation: ${error.message}`)
+  return {
+    historicalEvaluationId: data.id,
+    historicalPredictionId: snapshot.historicalPrediction.id,
+    ticker: preview.ticker,
+    horizonDays: snapshot.horizonDays,
+    methodologyVersion: snapshot.methodologyVersion,
+    reconstructionRuleVersion: snapshot.reconstructionRuleVersion,
+    calculatedAt: snapshot.calculatedAt,
+    databaseRecordedAt: data.recorded_at,
+    entrySession: snapshot.entrySession,
+    exitSession: snapshot.exitSession,
+    stockReturn: snapshot.returns.stock.returnFraction,
+    stockMinusMarketReturn: snapshot.returns.stockMinusMarketReturn,
+    stockMinusSectorReturn,
+    snapshotFingerprint: fingerprint,
   }
 }

@@ -24,6 +24,7 @@
     "preview:historical-prediction": "tsx src/index.ts preview-historical-prediction",
     "create:historical-prediction": "tsx src/index.ts create-historical-prediction",
     "preview:historical-evaluation": "tsx src/index.ts preview-historical-evaluation",
+    "create:historical-evaluation": "tsx src/index.ts create-historical-evaluation",
     "preview:historical-price-backfill": "tsx src/index.ts preview-historical-price-backfill",
     "backfill:historical-prices": "tsx src/index.ts backfill-historical-prices",
     "preview:prediction": "tsx src/index.ts preview-prediction",

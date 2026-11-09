@@ -90,7 +90,10 @@ import {
   createAndStoreHistoricalPrediction,
   previewHistoricalPrediction,
 } from './historical-predictions.js'
-import { previewHistoricalEvaluation } from './historical-evaluations.js'
+import {
+  createAndStoreHistoricalEvaluation,
+  previewHistoricalEvaluation,
+} from './historical-evaluations.js'
 import {
   backfillHistoricalPrices,
   previewHistoricalPriceBackfill,
@@ -646,21 +649,20 @@ async function main(): Promise<void> {
       console.log(JSON.stringify(result, null, 2))
       break
     }
-    case WorkerCommand.previewHistoricalEvaluation: {
+    case WorkerCommand.previewHistoricalEvaluation:
+    case WorkerCommand.createHistoricalEvaluation: {
       rejectUnknownCommandOptions(commandArguments, [WorkerCommandFlag.evaluationHorizon])
       const historicalPredictionId = requireSinglePositionalArgument(
         commandArguments,
-        WorkerCommand.previewHistoricalEvaluation,
+        command,
       )
       const horizonDays = parseEvaluationHorizon(
         requireCommandOption(commandArguments, WorkerCommandFlag.evaluationHorizon),
       )
-      const preview = await previewHistoricalEvaluation(
-        client,
-        historicalPredictionId,
-        horizonDays,
-      )
-      console.log(JSON.stringify(preview, null, 2))
+      const result = command === WorkerCommand.previewHistoricalEvaluation
+        ? await previewHistoricalEvaluation(client, historicalPredictionId, horizonDays)
+        : await createAndStoreHistoricalEvaluation(client, historicalPredictionId, horizonDays)
+      console.log(JSON.stringify(result, null, 2))
       break
     }
     case WorkerCommand.previewHistoricalPriceBackfill:

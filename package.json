@@ -29,6 +29,7 @@
     "worker:preview-historical-prediction": "pnpm --filter @chiron/worker preview:historical-prediction",
     "worker:create-historical-prediction": "pnpm --filter @chiron/worker create:historical-prediction",
     "worker:preview-historical-evaluation": "pnpm --filter @chiron/worker preview:historical-evaluation",
+    "worker:create-historical-evaluation": "pnpm --filter @chiron/worker create:historical-evaluation",
     "worker:preview-historical-price-backfill": "pnpm --filter @chiron/worker preview:historical-price-backfill",
     "worker:backfill-historical-prices": "pnpm --filter @chiron/worker backfill:historical-prices",
     "worker:preview-prediction": "pnpm --filter @chiron/worker preview:prediction",

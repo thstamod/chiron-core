@@ -194,8 +194,15 @@ The horizon must be `1`, `5`, or `20`. This command uses the frozen sessions but
 observations and benchmark mappings visible at preview time. It labels the result retrospective and
 preserves their real collection and creation timestamps; it does not pretend Chiron observed them
 at the simulated cutoff. A missing price or an exit session that has not closed produces
-`not_ready`. This first step is read-only. Historical evaluation storage is added only after these
-previews have been reviewed.
+`not_ready`. After reviewing a ready preview, freeze the complete result with:
+
+```bash
+pnpm worker:create-historical-evaluation <historical-prediction-id> --horizon=1
+```
+
+The create command uses the identical preparation path and inserts one permanent fingerprinted
+historical evaluation. It refuses incomplete and duplicate results and never writes to the genuine
+forward `evaluations` table.
 
 If the preview reports a missing historical price, inspect the exact bounded provider requests
 before writing anything:

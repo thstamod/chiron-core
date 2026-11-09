@@ -20,7 +20,7 @@ companies
         ├── financial_derived_metric_calculations
         ├── extraction_runs ── extraction_reviews
         ├── predictions ── evaluations
-        └── historical_reconstruction_plans ── historical_predictions
+        └── historical_reconstruction_plans ── historical_predictions ── historical_evaluations
 
 job_runs records whether background jobs succeeded or failed.
 ```
@@ -388,6 +388,30 @@ Important fields:
 The database verifies that the extraction and usable review belong to the plan, that the simulated
 cutoffs match, and that the planned entry opens afterward. Rows cannot be updated or deleted. The
 table contains no prices, returns, or evaluation results.
+
+### `historical_evaluations`
+
+Append-only retrospective outcomes linked only to `historical_predictions`. They never enter the
+genuine forward `evaluations` table.
+
+Important fields:
+
+- `historical_prediction_id` and `horizon_days`: identify the exact frozen prediction and its 1-,
+  5-, or 20-trading-day result.
+- `stock_return`, `market_return`, `sector_return`, and the two benchmark-relative returns: record
+  what happened using the same adjusted-open-to-adjusted-close method as forward evaluation.
+- The six price-observation IDs and two benchmark-assignment IDs: preserve the exact reconstructed
+  evidence selected at calculation time.
+- `methodology_version` and `reconstruction_rule_version`: distinguish the return formula from the
+  explicitly retrospective data-selection rule.
+- `snapshot`, `snapshot_schema_version`, and `snapshot_sha256`: freeze the complete prediction
+  fingerprint, evidence, calculations, and versions.
+- `calculated_at` and `recorded_at`: preserve when the result was prepared and honestly inserted.
+
+The database independently verifies the frozen horizon date, latest eligible price versions,
+benchmark mappings, session-close timing, prices, return calculations, and snapshot fields. It
+rejects duplicate versions, updates, and deletions. A result cannot be inserted before its exit
+session closes.
 
 ### `predictions`
 
