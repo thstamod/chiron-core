@@ -1,6 +1,7 @@
 import type { GuidanceChange } from './qualitative-extraction.js'
 
 export * from './qualitative-extraction.js'
+export * from './qualitative-extraction-history.js'
 
 export type EventStatus = 'tracking' | 'complete'
 

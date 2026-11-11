@@ -224,6 +224,27 @@ change the historical prediction or run automatically. Tiingo rejects ranges who
 are the same date, so one missing date uses the following calendar day as a harmless request
 boundary. If that would be a future date, it uses the preceding day instead.
 
+Inspect the quality and efficiency of stored qualitative extraction attempts without making a paid
+request or changing Supabase:
+
+```bash
+pnpm worker:report-qualitative-quality
+pnpm worker:report-qualitative-quality --purpose=historical_reconstruction
+pnpm worker:report-qualitative-quality --prompt-version=baseline-v6
+pnpm worker:report-qualitative-quality \
+  --pricing-file=config/openai-standard-2026-11-11.json
+```
+
+The optional purpose is `forward_prediction` or `historical_reconstruction`; omitting it reports
+both. Use `--prompt-version` to evaluate one prompt without mixing it with earlier development
+attempts. The report shows provider outcomes, schema and evidence validity, newest human-review
+decisions, strict field agreement with accepted or corrected output, repeated-run consistency,
+latency, and tokens. It deliberately reports cost as unavailable until an explicit dated pricing
+profile matching the stored model is supplied. The committed example records OpenAI's standard
+`gpt-6-luna` token prices published on 2026-11-11, including the default 30-minute cache-write rate.
+Add a new dated profile instead of editing an old one when prices change. The command is read-only
+and does not approve a larger paid backfill.
+
 After a completed extraction is accepted or corrected through the manual review command, create one
 immutable prediction for the event:
 

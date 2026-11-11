@@ -13,10 +13,12 @@ import {
 import {
   EarningsCategory,
   JobName,
+  QualitativeExtractionPurpose,
   WorkerCommand,
   WorkerCommandFlag,
   WorkerHealthConfig,
   WorkerTiming,
+  type QualitativeExtractionPurposeValue,
 } from './constants.js'
 import {
   checkDatabase,
@@ -98,6 +100,10 @@ import {
   backfillHistoricalPrices,
   previewHistoricalPriceBackfill,
 } from './historical-price-backfill.js'
+import { loadQualitativeQualityRuns } from './qualitative-quality-report-loader.js'
+import { calculateQualitativeQualityReport } from './qualitative-quality-report.js'
+import { formatQualitativeQualityReport } from './qualitative-quality-report-format.js'
+import { loadQualitativePricingProfile } from './qualitative-pricing-profile.js'
 
 async function runHealthCheck(): Promise<void> {
   const config = loadDatabaseConfig()
@@ -384,6 +390,20 @@ function rejectUnknownCommandOptions(
   }
 }
 
+function parseExtractionPurpose(value: string): QualitativeExtractionPurposeValue {
+  if (
+    value !== QualitativeExtractionPurpose.forwardPrediction
+    && value !== QualitativeExtractionPurpose.historicalReconstruction
+  ) {
+    throw new Error(
+      `${WorkerCommandFlag.extractionPurpose} must be `
+      + `${QualitativeExtractionPurpose.forwardPrediction} or `
+      + QualitativeExtractionPurpose.historicalReconstruction,
+    )
+  }
+  return value
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2] ?? WorkerCommand.health
   const commandArguments = process.argv.slice(3).filter((argument) => argument !== '--')
@@ -397,6 +417,53 @@ async function main(): Promise<void> {
   const client = createDatabaseClient(databaseConfig)
 
   switch (command) {
+    case WorkerCommand.reportQualitativeQuality: {
+      rejectUnknownCommandOptions(commandArguments, [
+        WorkerCommandFlag.extractionPurpose,
+        WorkerCommandFlag.promptVersion,
+        WorkerCommandFlag.pricingFile,
+      ])
+      const positionalArguments = commandArguments.filter(
+        (argument) => !argument.startsWith('--'),
+      )
+      if (positionalArguments.length > 0) {
+        throw new Error(
+          `${WorkerCommand.reportQualitativeQuality} does not accept positional arguments`,
+        )
+      }
+      const requestedPurpose = optionalCommandOption(
+        commandArguments,
+        WorkerCommandFlag.extractionPurpose,
+      )
+      const extractionPurpose = requestedPurpose
+        ? parseExtractionPurpose(requestedPurpose)
+        : undefined
+      const promptVersion = optionalCommandOption(
+        commandArguments,
+        WorkerCommandFlag.promptVersion,
+      )
+      const pricingFile = optionalCommandOption(
+        commandArguments,
+        WorkerCommandFlag.pricingFile,
+      )
+      const pricingProfile = pricingFile
+        ? await loadQualitativePricingProfile(pricingFile)
+        : undefined
+      const runs = await loadQualitativeQualityRuns(client, {
+        extractionPurpose,
+        promptVersion,
+      })
+      const report = calculateQualitativeQualityReport(runs, pricingProfile)
+      const scope = [
+        extractionPurpose ?? 'all extraction purposes',
+        promptVersion ? `prompt ${promptVersion}` : 'all prompt versions',
+      ].join(', ')
+      console.log(formatQualitativeQualityReport(
+        report,
+        scope,
+      ))
+      break
+    }
     case WorkerCommand.validateWatchlist:
       rejectUnknownCommandOptions(commandArguments, [])
       if (commandArguments.length > 0) {

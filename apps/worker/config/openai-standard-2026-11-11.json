@@ -1,0 +1,13 @@
+{
+  "name": "OpenAI standard API pricing for gpt-6-luna with default 30-minute cache writes",
+  "asOfDate": "2026-11-11",
+  "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+  "modelPricing": {
+    "gpt-6-luna": {
+      "ordinaryInputUsdPerMillionTokens": 0.1,
+      "cachedInputUsdPerMillionTokens": 0.01,
+      "cacheWriteUsdPerMillionTokens": 0.125,
+      "outputUsdPerMillionTokens": 0.5
+    }
+  }
+}

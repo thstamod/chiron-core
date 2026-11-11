@@ -149,6 +149,9 @@ export const QualitativeExtractionPurpose = {
   historicalReconstruction: 'historical_reconstruction',
 } as const
 
+export type QualitativeExtractionPurposeValue =
+  typeof QualitativeExtractionPurpose[keyof typeof QualitativeExtractionPurpose]
+
 export const EvaluationSnapshotVersion = {
   initial: 'evaluation-snapshot-v1',
 } as const
@@ -253,6 +256,10 @@ export const QualitativeReviewDecision = {
 
 export const QualitativeReviewVersion = {
   manual: 'manual-qualitative-review-v1',
+} as const
+
+export const QualitativeQualityReportConfig = {
+  reviewRunIdBatchSize: 100,
 } as const
 
 export const QualitativeEffectiveOutputSource = {
@@ -406,6 +413,7 @@ export const WorkerCommand = {
   createHistoricalEvaluation: 'create-historical-evaluation',
   previewHistoricalPriceBackfill: 'preview-historical-price-backfill',
   backfillHistoricalPrices: 'backfill-historical-prices',
+  reportQualitativeQuality: 'report-qualitative-quality',
 } as const
 
 export const WorkerCommandFlag = {
@@ -417,6 +425,9 @@ export const WorkerCommandFlag = {
   evaluationHorizon: '--horizon=',
   simulatedCutoff: '--cutoff=',
   experimentVersion: '--experiment-version=',
+  extractionPurpose: '--purpose=',
+  promptVersion: '--prompt-version=',
+  pricingFile: '--pricing-file=',
 } as const
 
 export const JobName = {

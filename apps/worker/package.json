@@ -17,6 +17,7 @@
     "preview:qualitative": "tsx src/index.ts preview-qualitative",
     "extract:qualitative": "tsx src/index.ts extract-qualitative",
     "review:qualitative": "tsx src/index.ts review-qualitative",
+    "report:qualitative-quality": "tsx src/index.ts report-qualitative-quality",
     "preview:historical-reconstruction-plan": "tsx src/index.ts preview-historical-reconstruction-plan",
     "create:historical-reconstruction-plan": "tsx src/index.ts create-historical-reconstruction-plan",
     "preview:historical-qualitative": "tsx src/index.ts preview-historical-qualitative",

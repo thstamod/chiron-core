@@ -22,6 +22,7 @@
     "worker:preview-qualitative": "pnpm --filter @chiron/worker preview:qualitative",
     "worker:extract-qualitative": "pnpm --filter @chiron/worker extract:qualitative",
     "worker:review-qualitative": "pnpm --filter @chiron/worker review:qualitative",
+    "worker:report-qualitative-quality": "pnpm --filter @chiron/worker report:qualitative-quality",
     "worker:preview-historical-reconstruction-plan": "pnpm --filter @chiron/worker preview:historical-reconstruction-plan",
     "worker:create-historical-reconstruction-plan": "pnpm --filter @chiron/worker create:historical-reconstruction-plan",
     "worker:preview-historical-qualitative": "pnpm --filter @chiron/worker preview:historical-qualitative",
