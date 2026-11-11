@@ -73,6 +73,9 @@ that must be validated before drawing conclusions from their results.
 See [Starter watchlist](docs/starter-watchlist.md) for the frozen 30-company research universe,
 SEC identifiers, versioned market and sector mappings, selection rules, and known limitations.
 
+See [LLM extraction quality gate](docs/llm-quality-gate.md) for the public development/validation
+protocol and the initial assumptions that must pass before a larger paid historical batch.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` only when connecting external services. Never commit `.env`.
