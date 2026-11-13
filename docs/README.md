@@ -65,4 +65,7 @@ not substitutes for deterministic tests.
 - State whether a command is read-only, writes data, contacts an external provider, or can cost
   money.
 - Update the relevant guide when behavior, configuration, commands, or public boundaries change.
+- Before declaring a feature complete, verify the root README, current-capabilities page, affected
+  subsystem and operations guides, and local handoff/roadmap are not stale. Stable contributor
+  behavior belongs in committed guides; temporary execution state belongs in the local handoff.
 

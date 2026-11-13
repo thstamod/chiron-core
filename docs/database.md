@@ -118,11 +118,12 @@ Important fields:
 - `calendar_version`: the exact published schedule used by a rule or prediction.
 - `source_url` and `source_checked_at`: where and when the official schedule was checked.
 
-The first version contains 2026–2028 sessions based on the
-[official NYSE holiday and trading-hours calendar](https://www.nyse.com/trade/hours-calendars).
-NYSE's normal core session is 09:30–16:00 Eastern Time; the migration also records its published
-13:00 early closes. PostgreSQL converts those New York times to absolute timestamps, accounting for
-daylight-saving changes.
+The retained original version contains 2026–2028 sessions. A later append-only version expands
+coverage to 2024–2028 and records the January 9, 2025 national day of mourning closure. Both were
+built from official NYSE schedules; existing predictions keep their original calendar version
+instead of being reinterpreted. NYSE's normal core session is 09:30–16:00 Eastern Time, and the
+migrations also record published 13:00 early closes. PostgreSQL converts those New York times to
+absolute timestamps, accounting for daylight-saving changes.
 
 This is a scheduled-calendar proxy for the initial US-company watchlist, not proof that every
 security traded continuously for the complete session. Unexpected closures or a later official

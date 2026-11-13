@@ -20,6 +20,8 @@ prevents proposed work in `future-improvements.md` from being mistaken for activ
 - Transparent scoring from `-5` to `+5` outside the LLM.
 - Versioned daily prices, market sessions, benchmark mappings, immutable forward predictions, and
   explicit 1-, 5-, and 20-session evaluation creation.
+- Append-only official US-equities calendar coverage from 2024 through 2028 for forward and
+  retrospective schedule reconstruction.
 - Separate immutable historical reconstruction plans, predictions, price backfills, and evaluations
   that never enter the genuine forward record.
 - A local read-only Node GraphQL API and Vue dashboard for approved research presentation fields.

@@ -143,6 +143,12 @@ then run `pnpm check`. Use `pnpm test` when changes span packages. For dashboard
 the affected UI in the browser when available; type-checking alone does not verify presentation.
 Documentation-only changes need command/path/link verification rather than unrelated test runs.
 
+A feature is complete only when the equivalent contributor documentation is updated. Review the
+root README, `docs/README.md`, current-capabilities guide, affected subsystem/operations/database
+guides, and the local handoff or roadmap when present. Update only the documents affected by the
+feature, but explicitly verify the others are not made stale. Keep proposed behavior labeled as
+future work and keep private Research results out of public Core documentation.
+
 Inspect the final diff for unrelated changes, secrets, and generated files. Report what changed,
 what validation ran, and any checks that could not be completed. Contributions are under Apache-2.0,
 as described in `CONTRIBUTING.md` and `LICENSE`.
