@@ -1,5 +1,9 @@
 # Chiron: a visual guide to the code
 
+For task-based setup and contributor reading paths, start with the
+[documentation index](README.md). For a short implemented-versus-future boundary, read
+[Current capabilities](current-capabilities.md).
+
 Read one numbered section at a time. Start with section 1; the function names become useful once the overall flow makes sense.
 
 This guide describes the current local code, including changes awaiting review and push. GitHub only runs the code committed to its default branch.
@@ -492,6 +496,10 @@ retry and is not scheduled. Prediction and evaluation creation are explicit and 
 Evaluation preview reports why a horizon is not ready instead of calculating a partial result, and
 creation reuses that same guarded preparation path.
 
+For the complete plain-language explanation of current/previous roles, passage IDs such as
+`current-p0021`, automatic validation, manual corrections, and historical boundaries, read
+[Qualitative extraction and evidence guide](qualitative-extraction.md).
+
 ```mermaid
 flowchart TD
     A[Documents available at analysis cutoff] --> B[Extract financial numbers and qualitative evidence]
@@ -516,12 +524,16 @@ For example, an analysis completed after market close cannot claim the earlier c
 
 ## 15. Suggested reading path
 
-1. Start with sections 1–3 to understand the purpose and locations.
+1. Read [Current capabilities](current-capabilities.md) and sections 1–3 here.
 2. Read `index.ts: main()` alongside section 4.
 3. Follow `syncFilings()` and `sec.ts` alongside section 5.
 4. Follow `syncDocuments()` and `documents.ts` alongside section 6.
 5. Follow `syncEvents()` and `events.ts` alongside section 7.
 6. Follow `extractDocumentText()` and `document-text.ts` alongside section 8.
-7. Use sections 9–12 while reading financial extraction, calculations, migrations and database operations.
-8. Read the Vue files alongside section 13.
-9. Keep section 14 separate from today's implemented behavior.
+7. Use sections 9–12 while reading financial extraction, calculations, migrations, and database
+   operations.
+8. Read [GraphQL API guide](graphql-api.md) and the Vue files alongside section 13.
+9. Read [Qualitative extraction and evidence](qualitative-extraction.md) before changing or
+   operating the LLM extraction and review pipeline.
+10. Use [Testing guide](testing.md) to choose proportional validation.
+11. Keep proposed future behavior separate from today's implemented behavior.

@@ -10,6 +10,14 @@ Before proposing a change:
 4. Do not add buy/sell recommendations or automated trading features.
 5. Add or update tests when behavior changes.
 
+For work involving LLM input, evidence passage IDs, extraction validation, or human corrections,
+read [Qualitative extraction and evidence guide](docs/qualitative-extraction.md) before changing the
+pipeline.
+
+Use the [documentation index](docs/README.md) to find the setup, operations, GraphQL, testing, and
+domain guides relevant to a change. Check [Current capabilities](docs/current-capabilities.md)
+before describing proposed behavior as implemented.
+
 ## Code readability
 
 Chiron is an open-source research project, so a reader should be able to understand the code without

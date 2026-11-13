@@ -15,9 +15,18 @@ Before making changes:
 
 Useful references:
 
+- `docs/README.md`: task-based documentation index and contributor reading paths.
+- `docs/current-capabilities.md`: implemented, manual, partial, and deferred behavior.
+- `docs/supabase-setup.md`: supported database setup, migrations, RLS, and secret handling.
+- `docs/operations-runbook.md`: schedules, command safety, recovery, and operational handoff.
+- `docs/testing.md`: proportional validation and live-service boundaries.
 - `docs/database.md`: tables, relationships, and private document storage.
 - `docs/visual-guide.md`: architecture and processing diagrams.
+- `docs/graphql-api.md`: current GraphQL contract, examples, and security boundary.
+- `docs/finance-glossary.md`: plain-language financial and research terms.
 - `docs/scoring.md`: transparent scoring rules and limitations.
+- `docs/qualitative-extraction.md`: qualitative input, passage IDs, evidence validation, review, and
+  the safe operating sequence.
 - `docs/prediction-audit-and-market-risk.md`: proposed research, not implemented product behavior.
 - `docs/future-improvements.md`: future ideas, not a specification of existing functionality.
 

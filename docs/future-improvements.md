@@ -1,8 +1,9 @@
 # Future Improvements
 
-This document records improvements that are useful but are intentionally deferred so the current
-MVP remains small and understandable. An item in this file is not active functionality until it is
-implemented and tested.
+This document records proposed, partial, and remaining improvements so the current MVP remains
+small and understandable. Each item's explicit `Status` is the source of truth; some sections retain
+their original proposal context after an initial implementation. Read
+[Current capabilities](current-capabilities.md) before treating an item as missing or complete.
 
 ## Next iteration
 
@@ -702,7 +703,7 @@ generated later without losing information.
 - Enabling a new retrieval version is an explicit deployment decision; old extractions never
   change.
 
-### Add a server-side GraphQL API for the live dashboard
+### Harden the server-side GraphQL API for the live dashboard
 
 **Status:** Initial local read API implemented; deployment hardening remains
 

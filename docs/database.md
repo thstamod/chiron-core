@@ -280,6 +280,10 @@ creates a new calculation while the earlier result remains available for auditin
 One append-only record for every LLM extraction attempt, including unsuccessful requests. Database
 triggers reject updates and deletes so an earlier result cannot be silently rewritten.
 
+Read [Qualitative extraction and evidence guide](qualitative-extraction.md) for the full meaning of
+current/previous document roles, evidence passages such as `current-p0021`, automatic validation,
+and the human-review lifecycle.
+
 Important fields:
 
 - `cutoff_at`: the latest information the extraction was allowed to use.

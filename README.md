@@ -64,6 +64,9 @@ supabase       Database migrations
 See [Database guide](docs/database.md) for a plain-language explanation of every table,
 their relationships, and the private SEC document bucket.
 
+See the [documentation index](docs/README.md) for task-based reading paths covering setup,
+operations, GraphQL, testing, financial terms, and an end-to-end synthetic tutorial.
+
 See [Visual code guide](docs/visual-guide.md) for Mermaid diagrams explaining the project,
 its files, worker functions, database relationships, and the future research pipeline.
 
@@ -75,6 +78,13 @@ SEC identifiers, versioned market and sector mappings, selection rules, and know
 
 See [LLM extraction quality gate](docs/llm-quality-gate.md) for the public development/validation
 protocol and the initial assumptions that must pass before a larger paid historical batch.
+
+See [Qualitative extraction and evidence guide](docs/qualitative-extraction.md) for a plain-language
+explanation of current/previous documents, passage IDs such as `current-p0021`, structured output,
+automatic evidence validation, human corrections, and the forward/historical boundary.
+
+See [Current capabilities](docs/current-capabilities.md) for the explicit boundary between
+implemented, manual, partial, and future behavior.
 
 ## Environment variables
 
