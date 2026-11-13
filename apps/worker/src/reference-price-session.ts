@@ -3,6 +3,7 @@ import {
   DatabaseTable,
   EvaluationHorizonTradingDays,
   MarketCalendar,
+  MarketCalendarCoverage,
   MarketCalendarVersion,
   RuleVersion,
 } from './constants.js'
@@ -12,6 +13,22 @@ interface StoredMarketSession {
   opens_at: string
   calendar_code: string
   calendar_version: string
+}
+
+function requireReasonableEntryDelay(
+  analysisCutoffAt: string,
+  entryOpensAt: string,
+): void {
+  const maximumDelayMilliseconds = MarketCalendarCoverage.maximumEntryDelayCalendarDays
+    * 24 * 60 * 60 * 1_000
+  const entryDelayMilliseconds = new Date(entryOpensAt).valueOf()
+    - new Date(analysisCutoffAt).valueOf()
+  if (entryDelayMilliseconds > maximumDelayMilliseconds) {
+    throw new Error(
+      `The next market session opens more than ${MarketCalendarCoverage.maximumEntryDelayCalendarDays} `
+      + 'calendar days after the analysis cutoff; calendar coverage may be incomplete',
+    )
+  }
 }
 
 export interface PlannedReferencePriceSession {
@@ -47,7 +64,7 @@ export async function selectPlannedReferencePriceSession(
     'analysis cutoff timestamp',
   )
   const calendarCode = MarketCalendar.unitedStatesEquities
-  const calendarVersion = MarketCalendarVersion.unitedStatesEquities2026Through2028
+  const calendarVersion = MarketCalendarVersion.unitedStatesEquities2024Through2028
 
   const { data, error } = await client
     .from(DatabaseTable.marketSessions)
@@ -72,6 +89,7 @@ export async function selectPlannedReferencePriceSession(
   if (opensAt <= normalizedAnalysisCutoffAt) {
     throw new Error('The selected reference-price session must open after the analysis cutoff')
   }
+  requireReasonableEntryDelay(normalizedAnalysisCutoffAt, opensAt)
 
   return {
     sessionDate: data.session_date,
@@ -121,7 +139,7 @@ export async function selectPlannedPredictionSessions(
     'analysis cutoff timestamp',
   )
   const calendarCode = MarketCalendar.unitedStatesEquities
-  const calendarVersion = MarketCalendarVersion.unitedStatesEquities2026Through2028
+  const calendarVersion = MarketCalendarVersion.unitedStatesEquities2024Through2028
   const requiredSessionCount = EvaluationHorizonTradingDays.twenty
 
   const { data, error } = await client
@@ -156,6 +174,7 @@ export async function selectPlannedPredictionSessions(
   }
 
   const entrySession = sessions[0]!
+  requireReasonableEntryDelay(normalizedAnalysisCutoffAt, entrySession.opens_at)
   return {
     entry: {
       sessionDate: entrySession.session_date,

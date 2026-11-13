@@ -68,7 +68,7 @@ test('selects the first market opening strictly after the analysis cutoff', asyn
       session_date: '2026-11-30',
       opens_at: '2026-11-30T14:30:00+00:00',
       calendar_code: MarketCalendar.unitedStatesEquities,
-      calendar_version: MarketCalendarVersion.unitedStatesEquities2026Through2028,
+      calendar_version: MarketCalendarVersion.unitedStatesEquities2024Through2028,
     },
     error: null,
   }, recordedCalls)
@@ -82,7 +82,7 @@ test('selects the first market opening strictly after the analysis cutoff', asyn
     sessionDate: '2026-11-30',
     opensAt: '2026-11-30T14:30:00.000Z',
     calendarCode: MarketCalendar.unitedStatesEquities,
-    calendarVersion: MarketCalendarVersion.unitedStatesEquities2026Through2028,
+    calendarVersion: MarketCalendarVersion.unitedStatesEquities2024Through2028,
     ruleVersion: RuleVersion.referencePriceSession,
   })
   assert.ok(recordedCalls.includes('gt:opens_at:2026-11-27T14:30:00.000Z'))
@@ -116,7 +116,7 @@ test('rejects a database result that does not actually open after the cutoff', a
       session_date: '2026-11-27',
       opens_at: '2026-11-27T14:30:00.000Z',
       calendar_code: MarketCalendar.unitedStatesEquities,
-      calendar_version: MarketCalendarVersion.unitedStatesEquities2026Through2028,
+      calendar_version: MarketCalendarVersion.unitedStatesEquities2024Through2028,
     },
     error: null,
   }, [])
@@ -155,7 +155,7 @@ function storedSessions(dates: string[]) {
     session_date: sessionDate,
     opens_at: `${sessionDate}T14:30:00.000Z`,
     calendar_code: MarketCalendar.unitedStatesEquities,
-    calendar_version: MarketCalendarVersion.unitedStatesEquities2026Through2028,
+    calendar_version: MarketCalendarVersion.unitedStatesEquities2024Through2028,
   }))
 }
 
@@ -188,5 +188,17 @@ test('refuses to plan a prediction without twenty future sessions', async () => 
   await assert.rejects(
     selectPlannedPredictionSessions(client, '2026-10-30T18:10:00.000Z'),
     /does not contain 20 sessions after/,
+  )
+})
+
+test('refuses an entry session that reveals missing calendar coverage', async () => {
+  const client = databaseClientReturning({
+    data: storedSessions(november2026SessionDates),
+    error: null,
+  }, [])
+
+  await assert.rejects(
+    selectPlannedPredictionSessions(client, '2025-08-01T10:04:08.000Z'),
+    /more than 7 calendar days.*calendar coverage may be incomplete/,
   )
 })

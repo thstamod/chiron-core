@@ -87,7 +87,12 @@ export const MarketCalendar = {
 } as const
 
 export const MarketCalendarVersion = {
+  unitedStatesEquities2024Through2028: 'us-equities-nyse-2024-2028-v1',
   unitedStatesEquities2026Through2028: 'us-equities-nyse-2026-2028-v1',
+} as const
+
+export const MarketCalendarCoverage = {
+  maximumEntryDelayCalendarDays: 7,
 } as const
 
 export const EarningsCategory = {
