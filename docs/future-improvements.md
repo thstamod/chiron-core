@@ -1453,6 +1453,64 @@ multiple environments, or horizontally scaling the price worker.
 - An unchanged provider value still creates no new observation.
 - A real `A → B → A` sequence remains preserved in chronological order.
 
+### Reconcile ambiguous append-only writes before retrying
+
+**Status:** Agreed, not implemented
+
+**Priority:** Next reliability iteration before automating plan, prediction, review, or evaluation
+creation
+
+#### Current behavior
+
+Guarded creation commands prepare and fingerprint an immutable record, insert it, and verify the
+database response. If the insert succeeds but the network connection fails before the response is
+received, or if response verification fails afterward, the command reports an error even though the
+row may already exist. A manual operator must inspect the database before deciding what happened.
+Blindly retrying could create a duplicate where the database does not enforce one exact logical
+operation identity. A separate pre-insert count also cannot act as a lock across two computers.
+
+#### Proposed behavior
+
+1. Give each guarded append-only operation a deterministic, versioned identity based on its event,
+   operation type, experiment or rule version, and complete input fingerprint.
+2. Enforce the appropriate uniqueness rule in PostgreSQL so concurrent writers cannot create two
+   records for the same logical operation.
+3. Add a read-only reconciliation command that accepts the intended identity and fingerprints,
+   then reports exactly one of: `not_recorded`, `recorded_exactly`, `recorded_conflict`, or
+   `ambiguous_multiple_records`.
+4. After any uncertain insert result, require reconciliation before another write attempt. Never
+   automatically retry an append-only creation command.
+5. If an exact record already exists, return its ID and recorded timestamp without modifying it. A
+   conflicting record must stop for manual investigation.
+
+#### What this improves
+
+- Distinguishes a failed write from a successful write whose response was lost.
+- Prevents duplicate plans or other immutable records during concurrent or repeated operations.
+- Makes recovery explicit and auditable instead of relying on manual SQL inspection.
+- Provides a reusable pattern for plans, reviews, predictions, and evaluations.
+
+#### What this does not improve
+
+Reconciliation cannot decide that two genuinely different inputs are equivalent, repair an
+incorrect record, or authorize replacing immutable history. It also does not remove the need for
+explicit approval before a write or paid provider call.
+
+#### Implementation trigger
+
+Implement this before guarded creation commands are automated, used concurrently from multiple
+machines, or operated by more than one person. The current single-user manual PoC remains safe when
+an error always causes an inspection before any retry.
+
+#### Acceptance checks
+
+- A simulated lost response after a successful insert is reported as `recorded_exactly`.
+- A failed insert with no row is reported as `not_recorded`.
+- A row with the same identity but different fingerprints is reported as `recorded_conflict`.
+- Two concurrent attempts for one logical operation produce at most one stored row.
+- Reconciliation performs no writes and never triggers a provider request.
+- No retry occurs automatically after an uncertain result.
+
 ## Adding another improvement
 
 For each future item, record:
