@@ -586,6 +586,52 @@ approval therefore remains a separate mandatory step before scoring can use an e
 - Valid output remains unavailable to scoring until a human accepts or corrects it.
 - The scheduled workflow never receives more provider permissions than the extraction job needs.
 
+### Evaluate a semantic claim-to-evidence verifier
+
+**Status:** Agreed, not implemented
+
+**Priority:** After enough human-reviewed extractions and corrections exist
+
+#### Current behavior
+
+Local validation proves that an evidence passage exists, belongs to the correct source document,
+and matches the stored fingerprints. It does not prove that the passage supports the complete
+meaning of an LLM statement. For example, a source saying that revenue is expected to increase does
+not support an extracted claim that revenue is expected to increase significantly.
+
+#### Proposed behavior
+
+1. Build a versioned verifier that compares each extracted claim with its cited passages.
+2. Combine deterministic checks for numbers, dates, percentages, directions, and named entities
+   with a separately versioned semantic model only where necessary.
+3. Test the verifier against human-accepted outputs and human corrections without changing the
+   original extraction or review records.
+4. Measure false approvals, false warnings, token usage, latency, and cost before allowing it to
+   influence the workflow.
+5. Store verifier results as separate audit evidence linked to the extraction and verifier version.
+6. Keep human review mandatory until predeclared accuracy thresholds are met on untouched events.
+
+#### What this improves
+
+- Detects claims that cite a real passage but exaggerate, omit, or alter its meaning.
+- Directs the reviewer to the highest-risk claims first.
+- Creates measurable evidence about whether semantic checking can safely reduce manual work.
+
+#### What this does not improve
+
+A second model can also misunderstand the source, and agreement between two models does not prove
+that a financial interpretation is correct. The verifier must not silently accept an extraction or
+replace the append-only human-review record until independent validation justifies that change.
+
+#### Acceptance checks
+
+- Every warning identifies the exact claim, evidence passages, verifier version, and reason.
+- Evaluation uses human-reviewed examples plus untouched events not used to design the verifier.
+- False approvals are measured separately from false warnings.
+- Running the verifier never modifies the original extraction, evidence, or human review.
+- Cost and token usage are recorded and compared with the review time saved.
+- Human acceptance remains required until an explicit later promotion decision.
+
 ### Revalidate historical outputs after validation-rule changes
 
 **Status:** Agreed, not implemented
