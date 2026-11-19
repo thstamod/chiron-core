@@ -16,7 +16,9 @@ prevents proposed work in `future-improvements.md` from being mistaken for activ
 - Deterministic inline-XBRL extraction of revenue, net income, basic EPS, and diluted EPS.
 - Versioned calculations for year-over-year revenue growth, net margin, and margin change.
 - A structured qualitative schema, public baseline prompt, exact evidence passages, OpenAI adapter,
-  guarded one-event paid command, and append-only human review/correction history.
+  guarded one-event paid command, and append-only human review/correction history. A human may
+  accept structurally validated `needs_review` output unchanged after inspecting every field and
+  its evidence; `invalid` output still requires correction or rejection.
 - Transparent scoring from `-5` to `+5` outside the LLM.
 - Versioned daily prices, market sessions, benchmark mappings, immutable forward predictions, and
   explicit 1-, 5-, and 20-session evaluation creation.

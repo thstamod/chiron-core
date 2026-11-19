@@ -123,6 +123,22 @@ test('stores an accepted review without correction fields', async () => {
   assert.equal(insertedRecords[0]?.notes, 'Reviewed the evidence.')
 })
 
+test('stores an accepted review for structurally valid output awaiting human review', async () => {
+  const { client, insertedRecords } = reviewClient(extractionRun({
+    validation_status: QualitativeValidationStatus.needsReview,
+  }))
+  const summary = await recordQualitativeExtractionReview(client, {
+    extractionRunId: '11111111-1111-4111-8111-111111111111',
+    decision: QualitativeReviewDecision.accepted,
+    reviewerLabel: 'owner-manual-review',
+    notes: 'Reviewed every field and evidence passage.',
+  })
+
+  assert.equal(summary.decision, QualitativeReviewDecision.accepted)
+  assert.equal(insertedRecords.length, 1)
+  assert.equal(insertedRecords[0]?.corrected_output, null)
+})
+
 test('rejects an accepted extraction that failed local validation', async () => {
   const { client, insertedRecords } = reviewClient(extractionRun({
     validation_status: QualitativeValidationStatus.invalid,
@@ -135,7 +151,7 @@ test('rejects an accepted extraction that failed local validation', async () => 
       reviewerLabel: 'owner-manual-review',
       notes: 'Attempted acceptance.',
     }),
-    /Only a locally valid qualitative extraction can be accepted/,
+    /Only a valid or needs-review qualitative extraction can be accepted/,
   )
   assert.equal(insertedRecords.length, 0)
 })

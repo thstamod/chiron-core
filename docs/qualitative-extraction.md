@@ -161,7 +161,9 @@ These concepts are different:
 - Human review decides whether the business interpretation is accepted, corrected, or rejected.
 
 A completed development extraction may deliberately be stored as `needs_review`. That is a workflow
-state, not evidence that the provider call failed.
+state, not evidence that the provider call failed. After inspecting every field and supporting
+passage, a human may accept that unchanged output. `invalid` output cannot be accepted; it must be
+corrected or rejected.
 
 Review decisions are append-only:
 

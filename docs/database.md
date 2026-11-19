@@ -332,8 +332,10 @@ Important fields:
 - `reviewer_label`, `notes`, and `review_version`: who performed the review, what they concluded,
   and which review procedure they followed.
 
-Database triggers reject updates and deletes. An accepted review is allowed only for extraction
-output that already passed local validation. Later scoring should use the latest accepted output or
+Database triggers reject updates and deletes. An accepted review is allowed for extraction output
+that passed local validation as `valid`, or for structurally validated `needs_review` output after a
+human inspects every field and its supporting evidence. `invalid` output cannot be accepted. Later
+scoring should use the latest accepted output or
 the latest corrected output and must ignore rejected output.
 
 The worker records an accepted or rejected review with an explicit decision, reviewer label, and

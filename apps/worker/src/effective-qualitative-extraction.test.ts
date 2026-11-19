@@ -117,6 +117,24 @@ test('uses the original output after an accepted review', () => {
   assert.deepEqual(result?.effective.output, output)
 })
 
+test('uses human-accepted needs-review output after structural evidence validation', () => {
+  const runId = '11111111-1111-4111-8111-111111111111'
+  const result = selectEffectiveQualitativeExtraction(
+    [run(runId, '2026-10-28T10:00:00.000Z', {
+      validation_status: QualitativeValidationStatus.needsReview,
+    })],
+    [review(
+      '22222222-2222-4222-8222-222222222222',
+      runId,
+      QualitativeReviewDecision.accepted,
+      '2026-10-28T11:00:00.000Z',
+    )],
+  )
+
+  assert.equal(result?.effective.source, QualitativeEffectiveOutputSource.original)
+  assert.deepEqual(result?.effective.output, output)
+})
+
 test('uses corrected output after a corrected review', () => {
   const runId = '11111111-1111-4111-8111-111111111111'
   const result = selectEffectiveQualitativeExtraction(

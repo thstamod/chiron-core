@@ -62,6 +62,11 @@ export function parseQualitativeReviewDecision(value: string): QualitativeReview
   return decision
 }
 
+function canAcceptQualitativeValidationStatus(validationStatus: string | null): boolean {
+  return validationStatus === QualitativeValidationStatus.valid
+    || validationStatus === QualitativeValidationStatus.needsReview
+}
+
 function outputFingerprint(output: unknown): string {
   return calculateContentSha256(new TextEncoder().encode(canonicalJson(output)))
 }
@@ -211,9 +216,9 @@ export async function recordQualitativeExtractionReview(
   }
   if (
     input.decision === QualitativeReviewDecision.accepted
-    && extractionRun.validation_status !== QualitativeValidationStatus.valid
+    && !canAcceptQualitativeValidationStatus(extractionRun.validation_status)
   ) {
-    throw new Error('Only a locally valid qualitative extraction can be accepted')
+    throw new Error('Only a valid or needs-review qualitative extraction can be accepted')
   }
 
   let correctedOutput: unknown | null = null

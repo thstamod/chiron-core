@@ -233,10 +233,13 @@ function effectiveCandidate(
 
   if (review.decision === QualitativeReviewDecision.accepted) {
     if (
-      run.validation_status !== QualitativeValidationStatus.valid
+      (
+        run.validation_status !== QualitativeValidationStatus.valid
+        && run.validation_status !== QualitativeValidationStatus.needsReview
+      )
       || run.located_evidence === null
     ) {
-      throw new Error(`Accepted extraction run ${run.id} is not locally valid`)
+      throw new Error(`Accepted extraction run ${run.id} is not valid or awaiting human review`)
     }
     effectiveOutput = originalOutput
     effectiveFingerprint = originalFingerprint

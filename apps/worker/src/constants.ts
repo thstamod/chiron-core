@@ -251,6 +251,7 @@ export const QualitativeProviderStatus = {
 export const QualitativeValidationStatus = {
   valid: 'valid',
   invalid: 'invalid',
+  needsReview: 'needs_review',
 } as const
 
 export const QualitativeReviewDecision = {
